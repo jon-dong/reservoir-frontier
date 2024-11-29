@@ -92,7 +92,7 @@ class CustomReservoir(torch.nn.Module):
         states = torch.zeros((n_res_scale, seq_len+1, self.res_size)).to(self.device)  
         # will contain the reservoir states
         if initial_state is not None:
-            states[0, :] = initial_state
+            states[:, 0, :] = initial_state
 
         res_scale_tensor = torch.tensor(res_scale_list).to(self.device).unsqueeze(1)
         for i in range(seq_len):
