@@ -1,9 +1,6 @@
 import numpy as np
 import torch
 
-use_cuda = torch.cuda.is_available()
-default_device = torch.device("cuda:2" if use_cuda else "cpu")
-
 
 class CustomReservoir(torch.nn.Module):
     """
@@ -20,7 +17,7 @@ class CustomReservoir(torch.nn.Module):
                  input_scale=1.0, res_scale=1.0, 
                  W_res=None, W_in=None,
                  f='tanh',
-                 seed=None, device=default_device):
+                 seed=None, device='cpu'):
         super().__init__()
 
         # Parameter initialization
