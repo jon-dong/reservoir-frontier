@@ -25,11 +25,12 @@ class CustomReservoir(torch.nn.Module):
         self.res_size = res_size
         self.input_scale = input_scale
         self.res_scale = res_scale
-#         self.seed = seed
+        self.seed = seed
         self.device = device
 
         # Weights generation
-#         torch.manual_seed(self.seed)
+        if seed is not None:
+            torch.manual_seed(self.seed)
         if W_in is None:
           self.W_in = torch.randn(res_size, input_size).to(self.device)
         else:
@@ -78,10 +79,10 @@ class CustomReservoir(torch.nn.Module):
     
     def forward_parallel(self, input_data, res_scale_list, initial_state=None):
         """
-        Compute the reservoir states for the given sequence
+        Compute the reservoir states for the given sequence, in parallel for different values of res_scale
         :param input_data: input sequence of shape (seq_len, input_size)
-        :param initial_state: initial reservoir state at t=0 (res_size, )
-        :return: successive reservoir states (seq_len+1, res_size)
+        :param initial_state: initial reservoir state at t=0 (n_res_scale, res_size, )
+        :return: successive reservoir states (n_res_scale, seq_len+1, res_size)
         """
         n_res_scale = len(res_scale_list)
         input_data = input_data.to(self.device)
@@ -102,7 +103,7 @@ class CustomReservoir(torch.nn.Module):
                 ) / np.sqrt(self.res_size)
         return states
         
-    def stability_test(self, input_data, res_scale_list, initial_state1=None, initial_state2=None):
+    def compare_initial_state_trajectories(self, input_data, res_scale_list, initial_state1=None, initial_state2=None):
         """
         Stability test: Iterate the reservoir for the same input data and two different initial state
         Follows the distance between the reservoir states through time, whether they converge to the same trajectory
