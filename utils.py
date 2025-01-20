@@ -48,6 +48,25 @@ def stability_test(res_size=100, input_size=100, input_len=100, resolution=20, c
         RC = CustomReservoir(f="erf", input_size=input_size, res_size=res_size,
                              W_res=W_res, W_in=W_in,
                              input_scale=input_scale, device=device)
-        rc_metric = RC.compare_initial_state_trajectories(input_data, res_scale_list, initial_state1=initial_state1, initial_state2=initial_state2)
+        rc_metric = compare_initial_state_trajectories(RC, input_data, res_scale_list, initial_state1=initial_state1, initial_state2=initial_state2)
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
     return final_metric
+
+
+def compare_initial_state_trajectories(RC, input_data, res_scale_list, initial_state1=None, initial_state2=None):
+    """
+    Stability test: Iterate the reservoir for the same input data and two different initial state
+    Follows the distance between the reservoir states through time, whether they converge to the same trajectory
+    """
+    n_res_scale = len(res_scale_list)
+    if initial_state1 is None:
+        initial_state1 = torch.randn(RC.res_size).to(RC.device) / np.sqrt(RC.res_size)
+        initial_state1 = initial_state1 / torch.norm(initial_state1)
+        initial_state1 = initial_state1.repeat(n_res_scale, 1)
+    if initial_state2 is None:
+        initial_state2 = torch.randn(RC.res_size).to(RC.device) / np.sqrt(RC.res_size)
+        initial_state2 = initial_state2 / torch.norm(initial_state2)
+        initial_state2 = initial_state2.repeat(n_res_scale, 1)
+    states1 = RC.forward_parallel(input_data, res_scale_list, initial_state1)
+    states2 = RC.forward_parallel(input_data, res_scale_list, initial_state2)
+    return torch.sum((states1 - states2)**2, dim=2)

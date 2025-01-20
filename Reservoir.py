@@ -103,20 +103,3 @@ class CustomReservoir(torch.nn.Module):
                 ) / np.sqrt(self.res_size)
         return states
         
-    def compare_initial_state_trajectories(self, input_data, res_scale_list, initial_state1=None, initial_state2=None):
-        """
-        Stability test: Iterate the reservoir for the same input data and two different initial state
-        Follows the distance between the reservoir states through time, whether they converge to the same trajectory
-        """
-        n_res_scale = len(res_scale_list)
-        if initial_state1 is None:
-            initial_state1 = torch.randn(self.res_size).to(self.device) / np.sqrt(self.res_size)
-            initial_state1 = initial_state1 / torch.norm(initial_state1)
-            initial_state1 = initial_state1.repeat(n_res_scale, 1)
-        if initial_state2 is None:
-            initial_state2 = torch.randn(self.res_size).to(self.device) / np.sqrt(self.res_size)
-            initial_state2 = initial_state2 / torch.norm(initial_state2)
-            initial_state2 = initial_state2.repeat(n_res_scale, 1)
-        states1 = self.forward_parallel(input_data, res_scale_list, initial_state1)
-        states2 = self.forward_parallel(input_data, res_scale_list, initial_state2)
-        return torch.sum((states1 - states2)**2, dim=2)
