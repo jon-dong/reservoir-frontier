@@ -67,14 +67,14 @@ class Network(torch.nn.Module):
         """Forward pass on a single scale
 
         params:
-        sequence: shape (n_layers, input_size)
-        state: initial state, shape (state_size)
-        n_history: number of the last states to keep
-        weight_scale: scaling factor for weights
-        bias_scale: scaling factor for biases
+            sequence: shape (n_layers, input_size)
+            state: initial state, shape (state_size)
+            n_history: number of the last states to keep
+            weight_scale: scaling factor for weights
+            bias_scale: scaling factor for biases
 
         returns:
-        res: shape (n_history, state_size)
+            res: shape (n_history, state_size)
         """
         assert sequence.shape[0] == self.depth, "Depth mismatch"
         assert sequence.shape[1] == self.input_size, "Input size mismatch"
@@ -153,7 +153,7 @@ class Network(torch.nn.Module):
                 weight_scales=weight_scales,
                 bias_scale=bias_scale,
             )
-            if i >= self.depth - n_history:
+            if i >= (self.depth - n_history):
                 res[:, i - self.depth + n_history, :] = current
         return res
 
