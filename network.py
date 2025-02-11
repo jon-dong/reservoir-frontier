@@ -5,55 +5,182 @@ from linop import LinOp
 
 
 class Network(torch.nn.Module):
-    def __init__(self, layer_size=100, 
-                 device='cpu'):
+    def __init__(
+        self,
+        input_size,
+        state_size,
+        input_scale,
+        depth,
+        W_in,
+        W_res,
+        mode="random",
+        dtype=torch.float64,
+        device="cpu",
+    ):
         super().__init__()
-        self.layer_size = layer_size
-        self.linop = LinOp().to(device)
+        self.input_size = input_size
+        self.state_size = state_size
+        self.input_scale = input_scale
+        self.W_in = W_in.to(dtype).to(device)
+        self.W_res = W_res.to(dtype).to(device)
+        self.depth = depth
+        self.dtype = dtype
+        self.device = device
+        self.linop = LinOp(
+            state_size=state_size, mode=mode, W_res=W_res, dtype=dtype, device=device
+        )
         self.f = torch.erf
 
-    def forward(self, initial_state, biases, 
-                n_history=10, weight_scale=1., bias_scale=1.):
-        n_layers = biases.shape[0]
-        result = torch.zeros(n_history, self.layer_size)
-        current_state = initial_state
-        for i_layer in range(n_layers):
-            current_state = self.single_iter(current_state, biases[i_layer, :], 
-                                             weight_scale=weight_scale,
-                                             bias_scale=bias_scale)
-            if i_layer >= n_layers-n_history:
-                result[i_layer-n_layers+n_history, :] = current_state
-        return result
+    def iter_single(self, input, bias, weight_scale=1.0, bias_scale=1.0):
+        """single forward for a single state scale on a single input.
 
-    def forward_parallel(self, initial_states, biases,
-                         n_history=10, weight_scale_list=[1.], bias_scale=1.):
-        n_weight_scale = len(weight_scale_list)
-        n_layers = biases.shape[0]
-        result = torch.zeros(n_weight_scale, n_history, self.layer_size)
-        current_states = initial_states
-        for i_layer in range(n_layers):
-            current_states = self.parallel_iter(current_states, biases[i_layer, :], 
-                                               weight_scale_list=weight_scale_list,
-                                               bias_scale=bias_scale)
-            if i_layer >= n_layers-n_history:
-                result[:, i_layer-n_layers+n_history, :] = current_states
-        return result
-
-    def single_iter(self, layer_state, bias, 
-                    weight_scale=1., bias_scale=1.):
+        returns:
+        res: shape (state_size)
+        """
         return self.f(
-            weight_scale * self.linop.apply(layer_state) +
-            bias_scale * bias.to(self.device)
-        ) / np.sqrt(self.layer_size)
+            weight_scale * self.linop.apply(input) + bias_scale * bias.to(self.device)
+        ) / np.sqrt(self.state_size)
 
-    def parallel_iter(self, layer_states, bias, 
-                      weight_scale_list=[1.], bias_scale=1.):
-        n_weight_scale = len(weight_scale_list)
-        weight_scales = torch.tensor(weight_scale_list).to(self.device).unsqueeze(1)
-        bias_term = bias.repeat(n_weight_scale, 1).to(self.device)
+    def iter_parallel(
+        self, inputs, bias, weight_scales: list = [1.0], bias_scale: float = 1.0
+    ):
+        """parallel forward for multiple state scales on a single input.
+
+        returns:
+        res: shape (n_scales, state_size)
+        """
+        n_scales = len(weight_scales)
+
+        weight_scales = torch.tensor(weight_scales).to(self.device)
+        bias_scale = torch.tensor(bias_scale).to(self.device)
+
+        biases = bias.repeat(n_scales, 1).to(self.device)
+
         return self.f(
-            weight_scales * self.linop.apply(layer_states) +
-            bias_scale * bias_term
-        ) / np.sqrt(self.layer_size)
-    
-    
+            torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs))
+            + bias_scale * biases
+        ) / np.sqrt(self.state_size)
+
+    def forward_single(
+        self, sequence, state=None, n_history=20, weight_scale=1.0, bias_scale=None
+    ):
+        """Forward pass on a single scale
+
+        params:
+        sequence: shape (n_layers, input_size)
+        state: initial state, shape (state_size)
+        n_history: number of the last states to keep
+        weight_scale: scaling factor for weights
+        bias_scale: scaling factor for biases
+
+        returns:
+        res: shape (n_history, state_size)
+        """
+        assert sequence.shape[0] == self.depth, "Depth mismatch"
+        assert sequence.shape[1] == self.input_size, "Input size mismatch"
+
+        n_layers = sequence.shape[0]
+        sequence = sequence.to(self.device)
+
+        biases = torch.einsum(
+            "ij,nj -> ni",
+            self.W_in,
+            sequence,
+        )
+
+        if state is not None:
+            assert state.shape[0] == self.state_size, "State size mismatch"
+            current = state
+        else:
+            current = torch.zeros(self.state_size).to(self.device)
+        if bias_scale is None:
+            bias_scale = self.input_scale
+
+        res = torch.zeros(n_history, self.state_size)
+        for i in range(n_layers):
+            current = self.iter_single(
+                current, biases[i], weight_scale=weight_scale, bias_scale=bias_scale
+            )
+            if i >= n_layers - n_history:
+                res[i - n_layers + n_history, :] = current
+        return res
+
+    def forward_parallel(
+        self,
+        sequence,
+        state,
+        weight_scales=[1.0],
+        bias_scale=None,
+        n_history=20,
+    ):
+        """forward pass on multiple state scales for a single input.
+
+        params:
+        n_history: number of the last states to keep, to be used for averagin
+        returns:
+        res: shape (n_scales, n_history, state_size)"""
+        assert sequence.shape[0] == self.depth, "Depth mismatch"
+        assert sequence.shape[1] == self.input_size, "Input size mismatch"
+
+        n_scales = len(weight_scales)
+
+        biases = torch.einsum(
+            "ij,nj -> ni",
+            self.W_in,
+            sequence,
+        )
+
+        if state is not None:
+            assert (
+                state.shape[0] == self.state_size
+            ), "State size mismatch, expected {}, got {}".format(
+                self.state_size, state.shape[0]
+            )
+            current = state.repeat(n_scales, 1).to(self.dtype).to(self.device)
+        else:
+            current = (
+                torch.zeros(n_scales, self.state_size).to(self.dtype).to(self.device)
+            )
+        if bias_scale is None:
+            bias_scale = self.input_scale
+        if n_history is None:
+            n_history = self.depth
+        res = torch.zeros(n_scales, n_history, self.state_size).to(self.device)
+        for i in range(self.depth):
+            current = self.iter_parallel(
+                current,
+                biases[i, :],
+                weight_scales=weight_scales,
+                bias_scale=bias_scale,
+            )
+            if i >= self.depth - n_history:
+                res[:, i - self.depth + n_history, :] = current
+        return res
+
+    def stability_test(self, sequence, weight_scales, state1=None, state2=None):
+        """
+        Stability test on the same input and different reservoir scales
+
+        Follows the distance between the reservoir states through time, whether they converge to the same trajectory
+
+        Returns:
+        dist: shape (n_scales, n_history)
+        """
+        n_scales = len(weight_scales)
+        sequence = sequence.to(self.device).to(self.dtype)
+
+        if state1 is None:
+            state1 = torch.randn(self.state_size).to(self.dtype).to(
+                self.device
+            ) / np.sqrt(self.state_size)
+            state1 = state1 / torch.norm(state1)
+            state1 = state1.repeat(n_scales, 1)
+        if state2 is None:
+            state2 = torch.randn(self.state_size).to(self.dtype).to(
+                self.device
+            ) / np.sqrt(self.state_size)
+            state2 = state2 / torch.norm(state2)
+            state2 = state2.repeat(n_scales, 1)
+        states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales)
+        states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales)
+        return torch.sum((states1 - states2) ** 2, dim=2)

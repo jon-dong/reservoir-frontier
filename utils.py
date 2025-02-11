@@ -1,15 +1,35 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-from Reservoir import CustomReservoir
+from reservoir import CustomReservoir
+from network import Network
+
 
 def erf_frontier(res_scale):
-    return np.sqrt(4*res_scale**4/np.pi**2 - 1/(4) - 2*res_scale**2/np.pi*np.arcsin((16*res_scale**4-np.pi**2)/(16*res_scale**4+np.pi**2))+1e-6)
+    return np.sqrt(
+        4 * res_scale**4 / np.pi**2
+        - 1 / (4)
+        - 2
+        * res_scale**2
+        / np.pi
+        * np.arcsin((16 * res_scale**4 - np.pi**2) / (16 * res_scale**4 + np.pi**2))
+        + 1e-6
+    )
 
 
-def stability_test(res_size=100, input_size=100, input_len=100, resolution=20, constant_input=False,
-                   res_scale_bounds=[0, 3], input_scale_bounds=[0, 2], 
-                   average=10, device='cpu', seed=0):
+def stability_test(
+    res_size=100,
+    input_size=100,
+    input_len=100,
+    resolution=20,
+    constant_input=False,
+    res_scale_bounds=[0, 3],
+    input_scale_bounds=[0, 2],
+    average=10,
+    device="cpu",
+    seed=0,
+    use='reservoir',
+):
     """
     Test the stability of the reservoir for different input and reservoir scales.
     :param res_size: number of units in the reservoir
@@ -24,16 +44,20 @@ def stability_test(res_size=100, input_size=100, input_len=100, resolution=20, c
     """
     torch.manual_seed(seed)
     if not constant_input:
-        input_data = torch.randn(input_len, input_size).to(device)
+        sequence = torch.randn(input_len, input_size).to(device)
         for i in range(input_len):  # normalize input at each timestep
-            input_data[i, :] = input_data[i, :] / torch.norm(input_data[i, :])
+            sequence[i, :] = sequence[i, :] / torch.norm(sequence[i, :])
     else:
-        input_data = torch.randn(input_size).to(device)
-        input_data = input_data / torch.norm(input_data)
-        input_data = input_data.repeat(input_len, 1)
+        sequence = torch.randn(input_size).to(device)
+        sequence = sequence / torch.norm(sequence)
+        sequence = sequence.repeat(input_len, 1)
 
-    res_scale_list = np.linspace(res_scale_bounds[0], res_scale_bounds[1], num=resolution)
-    input_scale_list = np.linspace(input_scale_bounds[0], input_scale_bounds[1], num=resolution)
+    res_scales = np.linspace(
+        res_scale_bounds[0], res_scale_bounds[1], num=resolution
+    )
+    input_scales = np.linspace(
+        input_scale_bounds[0], input_scale_bounds[1], num=resolution
+    )
     final_metric = torch.zeros(resolution, resolution)
 
     # Initializel reservoir and initial states
@@ -44,10 +68,32 @@ def stability_test(res_size=100, input_size=100, input_len=100, resolution=20, c
     initial_state2 = torch.randn(res_size).to(device) / np.sqrt(res_size)
     initial_state2 = initial_state2 / torch.norm(initial_state2)
 
-    for (i_in, input_scale) in tqdm(enumerate(input_scale_list)):
-        RC = CustomReservoir(f="erf", input_size=input_size, res_size=res_size,
-                             W_res=W_res, W_in=W_in,
-                             input_scale=input_scale, device=device)
-        rc_metric = RC.stability_test(input_data, res_scale_list, initial_state1=initial_state1, initial_state2=initial_state2)
+    for i_in, input_scale in tqdm(enumerate(input_scales)):
+        if use == 'reservoir':
+            RC = CustomReservoir(
+                f="erf",
+                input_size=input_size,
+                res_size=res_size,
+                W_res=W_res,
+                W_in=W_in,
+                input_scale=input_scale,
+                device=device,
+            )
+            rc_metric = RC.stability_test(
+                sequence, res_scales, state1=initial_state1, state2=initial_state2
+            )
+        elif use == 'network':
+            net = Network(
+                input_size=input_size,
+                state_size=res_size,
+                input_scale=input_scale,
+                W_res=W_res,
+                W_in=W_in,
+                depth=input_len,
+                device=device,
+            )
+            rc_metric = net.stability_test(
+                sequence, res_scales, state1=initial_state1, state2=initial_state2
+            )
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
     return final_metric

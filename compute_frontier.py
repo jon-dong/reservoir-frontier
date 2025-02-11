@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn
 import sys
 from tqdm import tqdm
-from Reservoir import CustomReservoir
+from reservoir import CustomReservoir
 from utils import stability_test
 
 use_cuda = torch.cuda.is_available()
