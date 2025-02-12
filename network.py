@@ -13,6 +13,7 @@ class Network(torch.nn.Module):
         depth,
         W_in,
         W_res,
+        transpose=True,
         mode="random",
         dtype=torch.float64,
         device="cpu",
@@ -26,9 +27,14 @@ class Network(torch.nn.Module):
         self.depth = depth
         self.dtype = dtype
         self.device = device
-        self.linop = LinOp(
-            state_size=state_size, mode=mode, W_res=W_res, dtype=dtype, device=device
-        )
+        if transpose is True:
+            self.linop = LinOp(
+                state_size=state_size, mode=mode, W_res=W_res.T, dtype=dtype, device=device
+            )
+        else:
+            self.linop = LinOp(
+                state_size=state_size, mode=mode, W_res=W_res, dtype=dtype, device=device
+            )
         self.f = torch.erf
 
     def iter_single(self, input, bias, weight_scale=1.0, bias_scale=1.0):
