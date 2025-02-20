@@ -19,14 +19,14 @@ input_size = 100
 input_len = 10000
 resolution = 1000
 # Bounds for n_res = 100
-# res_scale_bounds = [0, 2]
-# input_scale_bounds = [0, 2]
+res_scale_bounds = [0, 2]
+input_scale_bounds = [0, 2]
 # res_scale_bounds = [1.62, 1.92]
 # input_scale_bounds = [1, 1.3]
 # res_scale_bounds = [1.73, 1.83]
 # input_scale_bounds = [1.1, 1.2]
-res_scale_bounds = [1.777, 1.802]
-input_scale_bounds = [1.137, 1.162]
+# res_scale_bounds = [1.777, 1.802]
+# input_scale_bounds = [1.137, 1.162]
 # res_scale_bounds = [1.785, 1.795]
 # input_scale_bounds = [1.145, 1.155]
 
@@ -52,6 +52,7 @@ metric_erf = stability_test(
     device=device,
     seed=seed,
     use='network',
+    mode='structured_random',
 )
 
 plt.figure()

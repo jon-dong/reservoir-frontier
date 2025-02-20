@@ -29,6 +29,7 @@ def stability_test(
     device="cpu",
     seed=0,
     use='reservoir',
+    mode=None,
 ):
     """
     Test the stability of the reservoir for different input and reservoir scales.
@@ -89,6 +90,7 @@ def stability_test(
                 input_scale=input_scale,
                 W_res=W_res,
                 W_in=W_in,
+                mode=mode,
                 depth=input_len,
                 device=device,
             )

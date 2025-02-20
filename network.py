@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from linop import LinOp
+import linop
 
 
 class Network(torch.nn.Module):
@@ -13,7 +13,6 @@ class Network(torch.nn.Module):
         depth,
         W_in,
         W_res,
-        transpose=True,
         mode="random",
         dtype=torch.float64,
         device="cpu",
@@ -27,13 +26,13 @@ class Network(torch.nn.Module):
         self.depth = depth
         self.dtype = dtype
         self.device = device
-        if transpose is True:
-            self.linop = LinOp(
-                state_size=state_size, mode=mode, W_res=W_res.T, dtype=dtype, device=device
+        if mode == 'random':
+            self.linop = linop.Random(
+                state_size=state_size, W_res=W_res, dtype=dtype, device=device
             )
-        else:
-            self.linop = LinOp(
-                state_size=state_size, mode=mode, W_res=W_res, dtype=dtype, device=device
+        elif mode == 'structured_random':
+            self.linop = linop.StructuredRandom(
+                shape=(state_size,), n_layers=1.5, dtype=dtype, device=device
             )
         self.f = torch.erf
 
@@ -62,10 +61,12 @@ class Network(torch.nn.Module):
 
         biases = bias.repeat(n_scales, 1).to(self.device)
 
-        return self.f(
-            torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs))
-            + bias_scale * biases
-        ) / np.sqrt(self.state_size)
+        res = torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs)) + bias_scale * biases
+        if torch.is_complex(res):
+            res = self.f(res.real) + 1j * self.f(res.imag)
+        else:
+            res = self.f(res)
+        return res / np.sqrt(self.state_size)
 
     def forward_single(
         self, sequence, state=None, n_history=20, weight_scale=1.0, bias_scale=None
@@ -153,6 +154,7 @@ class Network(torch.nn.Module):
             n_history = self.depth
         res = torch.zeros(n_scales, n_history, self.state_size).to(self.device)
         for i in range(self.depth):
+            print("current iteration", i)
             current = self.iter_parallel(
                 current,
                 biases[i, :],
