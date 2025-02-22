@@ -13,6 +13,7 @@ class Network(torch.nn.Module):
         depth,
         W_in,
         W_res,
+        n_linops=1,
         mode="random",
         dtype=torch.float64,
         device="cpu",
@@ -27,13 +28,15 @@ class Network(torch.nn.Module):
         self.dtype = dtype
         self.device = device
         if mode == 'random':
-            self.linop = linop.Random(
+            self.linops = [linop.Random(
                 state_size=state_size, W_res=W_res, dtype=dtype, device=device
-            )
+            ) for _ in range(n_linops)]
         elif mode == 'structured_random':
-            self.linop = linop.StructuredRandom(
+            self.linops = [ linop.StructuredRandom(
                 shape=(state_size,), n_layers=2, dtype=dtype, device=device
-            )
+            ) for _ in range(n_linops) ]
+        self.n_linops = n_linops
+        self.counter = 0
         self.f = torch.erf
 
     def iter_single(self, input, bias, weight_scale=1.0, bias_scale=1.0):
@@ -42,9 +45,13 @@ class Network(torch.nn.Module):
         returns:
         res: shape (state_size)
         """
-        return self.f(
-            weight_scale * self.linop.apply(input) + bias_scale * bias.to(self.device)
+        result = self.f(
+            weight_scale * self.linops[self.counter].apply(input) + bias_scale * bias.to(self.device)
         ) / np.sqrt(self.state_size)
+        self.counter += 1
+        if self.counter == self.n_linops:
+            self.counter = 0
+        return result
 
     def iter_parallel(
         self, inputs, bias, weight_scales: list = [1.0], bias_scale: float = 1.0
@@ -61,11 +68,14 @@ class Network(torch.nn.Module):
 
         biases = bias.repeat(n_scales, 1).to(self.device)
 
-        pre_act = torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs)) + bias_scale * biases
+        pre_act = torch.einsum("n, ni -> ni", weight_scales, self.linops[self.counter].apply(inputs)) + bias_scale * biases
         if torch.is_complex(pre_act):
             aft_act = self.f(pre_act.real)
         else:
             aft_act = self.f(pre_act)
+        self.counter += 1
+        if self.counter == self.n_linops:
+            self.counter = 0
         return aft_act / np.sqrt(self.state_size)
 
     def forward_single(
