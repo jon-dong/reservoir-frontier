@@ -18,6 +18,7 @@ res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
+mode = "structured_random"
 # Bounds for n_res = 100
 res_scale_bounds = [0, 2]
 input_scale_bounds = [0, 2]
@@ -39,7 +40,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}res{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}2layer{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -52,7 +53,7 @@ metric_erf = stability_test(
     device=device,
     seed=seed,
     use='network',
-    mode='structured_random',
+    mode=mode,
 )
 
 plt.figure()

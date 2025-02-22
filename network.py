@@ -32,7 +32,7 @@ class Network(torch.nn.Module):
             )
         elif mode == 'structured_random':
             self.linop = linop.StructuredRandom(
-                shape=(state_size,), n_layers=1.5, dtype=dtype, device=device
+                shape=(state_size,), n_layers=2, dtype=dtype, device=device
             )
         self.f = torch.erf
 
@@ -61,12 +61,12 @@ class Network(torch.nn.Module):
 
         biases = bias.repeat(n_scales, 1).to(self.device)
 
-        res = torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs)) + bias_scale * biases
-        if torch.is_complex(res):
-            res = self.f(res.real) + 1j * self.f(res.imag)
+        pre_act = torch.einsum("n, ni -> ni", weight_scales, self.linop.apply(inputs)) + bias_scale * biases
+        if torch.is_complex(pre_act):
+            aft_act = self.f(pre_act.real)
         else:
-            res = self.f(res)
-        return res / np.sqrt(self.state_size)
+            aft_act = self.f(pre_act)
+        return aft_act / np.sqrt(self.state_size)
 
     def forward_single(
         self, sequence, state=None, n_history=20, weight_scale=1.0, bias_scale=None
@@ -154,7 +154,6 @@ class Network(torch.nn.Module):
             n_history = self.depth
         res = torch.zeros(n_scales, n_history, self.state_size).to(self.device)
         for i in range(self.depth):
-            print("current iteration", i)
             current = self.iter_parallel(
                 current,
                 biases[i, :],
