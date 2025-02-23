@@ -1,5 +1,7 @@
 import datetime
+import os
 import sys
+from warnings import warn
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,14 +13,56 @@ from tqdm import tqdm
 from reservoir import CustomReservoir
 from utils import stability_test
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # TOCHANGE 1/2
+def get_freer_gpu(verbose=True):
+    """
+    Returns the GPU device with the most free memory.
+
+    Use in conjunction with ``torch.cuda.is_available()``.
+    Attempts to use ``nvidia-smi`` with ``bash``, if these don't exist then uses torch commands to get free memory.
+
+    :param bool verbose: print selected GPU index and memory
+    :return torch.device device: selected torch cuda device.
+    """
+    try:
+        os.system(
+            "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"
+            if os.name == "posix"
+            else 'bash -c "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"'
+        )
+        memory_available = [int(x.split()[2]) for x in open("tmp", "r").readlines()]
+        idx, mem = np.argmax(memory_available), np.max(memory_available)
+        device = torch.device(f"cuda:{idx}")
+
+    except:
+        if torch.cuda.device_count() == 0:
+            warn("Couldn't find free GPU")
+            return torch.device(f"cuda")
+
+        else:
+            # Note this is slower and will return slightly different values to nvidia-smi
+            idx, mem = max(
+                (
+                    (d, torch.cuda.mem_get_info(d)[0] / 1048576)
+                    for d in range(torch.cuda.device_count())
+                ),
+                key=lambda x: x[1],
+            )
+            device = torch.device(f"cuda:{idx}")
+
+    if verbose:
+        print(f"Selected GPU {idx} with {mem} MiB free memory ")
+
+    return device
+
+device = get_freer_gpu()  # TOCHANGE 1/2
 
 seed = 0
 res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
-mode = "structured_random"
+mode = "random"
+n_linops = 8
 # Bounds for n_res = 100
 res_scale_bounds = [0, 2]
 input_scale_bounds = [0, 2]
@@ -40,7 +84,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}2layer{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}{n_linops}{mode}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -50,6 +94,7 @@ metric_erf = stability_test(
     constant_input=False,
     res_scale_bounds=res_scale_bounds,
     input_scale_bounds=input_scale_bounds,
+    n_linops=n_linops,
     device=device,
     seed=seed,
     use='network',

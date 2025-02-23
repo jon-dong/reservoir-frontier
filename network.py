@@ -29,7 +29,7 @@ class Network(torch.nn.Module):
         self.device = device
         if mode == 'random':
             self.linops = [linop.Random(
-                state_size=state_size, W_res=W_res, dtype=dtype, device=device
+                state_size=state_size, dtype=dtype, device=device
             ) for _ in range(n_linops)]
         elif mode == 'structured_random':
             self.linops = [ linop.StructuredRandom(
