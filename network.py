@@ -14,6 +14,7 @@ class Network(torch.nn.Module):
         W_in,
         W_res,
         n_linops=1,
+        n_layers=None,
         mode="random",
         dtype=torch.float64,
         device="cpu",
@@ -27,13 +28,14 @@ class Network(torch.nn.Module):
         self.depth = depth
         self.dtype = dtype
         self.device = device
+        self.mode = mode
         if mode == 'random':
             self.linops = [linop.Random(
                 state_size=state_size, dtype=dtype, device=device
             ) for _ in range(n_linops)]
         elif mode == 'structured_random':
             self.linops = [ linop.StructuredRandom(
-                shape=(state_size,), n_layers=2, dtype=dtype, device=device
+                shape=(state_size,), n_layers=n_layers, dtype=dtype, device=device
             ) for _ in range(n_linops) ]
         self.n_linops = n_linops
         self.counter = 0
@@ -45,13 +47,18 @@ class Network(torch.nn.Module):
         returns:
         res: shape (state_size)
         """
-        result = self.f(
+        aft_act = self.f(
             weight_scale * self.linops[self.counter].apply(input) + bias_scale * bias.to(self.device)
-        ) / np.sqrt(self.state_size)
+        )
         self.counter += 1
         if self.counter == self.n_linops:
             self.counter = 0
-        return result
+        if self.mode == 'random':
+            return aft_act / np.sqrt(self.state_size)
+        elif self.mode == 'structured_random':
+            return aft_act
+        else:
+            raise ValueError("Invalid mode")
 
     def iter_parallel(
         self, inputs, bias, weight_scales: list = [1.0], bias_scale: float = 1.0
@@ -76,7 +83,12 @@ class Network(torch.nn.Module):
         self.counter += 1
         if self.counter == self.n_linops:
             self.counter = 0
-        return aft_act / np.sqrt(self.state_size)
+        if self.mode == 'random':
+            return aft_act / np.sqrt(self.state_size)
+        elif self.mode == 'structured_random':
+            return aft_act
+        else:
+            raise ValueError("Invalid mode")
 
     def forward_single(
         self, sequence, state=None, n_history=20, weight_scale=1.0, bias_scale=None
@@ -187,15 +199,11 @@ class Network(torch.nn.Module):
         sequence = sequence.to(self.device).to(self.dtype)
 
         if state1 is None:
-            state1 = torch.randn(self.state_size).to(self.dtype).to(
-                self.device
-            ) / np.sqrt(self.state_size)
+            state1 = torch.randn(self.state_size).to(self.dtype).to(self.device)
             state1 = state1 / torch.norm(state1)
             state1 = state1.repeat(n_scales, 1)
         if state2 is None:
-            state2 = torch.randn(self.state_size).to(self.dtype).to(
-                self.device
-            ) / np.sqrt(self.state_size)
+            state2 = torch.randn(self.state_size).to(self.dtype).to(self.device)
             state2 = state2 / torch.norm(state2)
             state2 = state2.repeat(n_scales, 1)
         states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales)

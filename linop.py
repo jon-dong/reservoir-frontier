@@ -19,7 +19,6 @@ class Random(LinOp):
         
         x can be either a single vector or a batch of vectors.
         """
-        now = time.time()
         res = th.einsum('ab, ...b -> ...a', self.matrix, x)
         return res
 
@@ -55,7 +54,7 @@ class Identity(LinOp):
         return x
 
 class StructuredRandom(LinOp):
-    def __init__(self, shape:tuple, n_layers:int, dtype=th.float64, device=th.device('cpu')):
+    def __init__(self, shape:tuple, n_layers:int|float, dtype=th.float64, device=th.device('cpu')):
         self.in_shape = shape
         self.out_shape = shape
         self.n_layers = n_layers

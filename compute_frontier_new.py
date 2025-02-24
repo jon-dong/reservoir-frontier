@@ -61,8 +61,10 @@ res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
-mode = "random"
-n_linops = 8
+mode = "structured_random"
+n_linops = 1
+n_layers = 2
+save = True
 # Bounds for n_res = 100
 res_scale_bounds = [0, 2]
 input_scale_bounds = [0, 2]
@@ -84,7 +86,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}{n_linops}{mode}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}{n_linops}{mode}2{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -95,6 +97,7 @@ metric_erf = stability_test(
     res_scale_bounds=res_scale_bounds,
     input_scale_bounds=input_scale_bounds,
     n_linops=n_linops,
+    n_layers=n_layers,
     device=device,
     seed=seed,
     use='network',
@@ -148,9 +151,10 @@ ax.set_xlabel("Reservoir scale")
 ax.set_ylabel("Input scale")
 ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
-np.save("data/" + filename + ".npy", metric_erf)
-np.save("data/" + filename + "_xlab.npy", xlab)
-np.save("data/" + filename + "_ylab.npy", ylab)
-plt.savefig("fig/" + filename + ".png")
+if save is True:
+    np.save("data/" + filename + ".npy", metric_erf)
+    np.save("data/" + filename + "_xlab.npy", xlab)
+    np.save("data/" + filename + "_ylab.npy", ylab)
+    plt.savefig("fig/" + filename + ".png")
 
 plt.show()
