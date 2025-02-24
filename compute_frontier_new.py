@@ -61,9 +61,9 @@ res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
-mode = "structured_random"
-n_linops = 1
-n_layers = 2
+mode = "random"
+n_linops = 20
+n_layers = None
 save = True
 # Bounds for n_res = 100
 res_scale_bounds = [0, 2]
@@ -86,7 +86,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}{n_linops}{mode}2{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}{n_linops}{mode}{n_layers if n_layers is not None else '_'}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,
