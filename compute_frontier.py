@@ -3,9 +3,6 @@ import torch
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn
-import sys
-from tqdm import tqdm
-from reservoir import CustomReservoir
 from utils import stability_test
 
 use_cuda = torch.cuda.is_available()

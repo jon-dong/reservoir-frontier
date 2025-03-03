@@ -1,6 +1,4 @@
-from abc import abstractmethod
 import math
-import time
 import torch as th
 
 from base_linop import LinOp

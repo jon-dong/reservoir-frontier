@@ -1,6 +1,5 @@
 import datetime
 import os
-import sys
 from warnings import warn
 
 import matplotlib
@@ -8,9 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn
 import torch
-from tqdm import tqdm
 
-from reservoir import CustomReservoir
 from utils import stability_test
 
 def get_freer_gpu(verbose=True):
@@ -36,7 +33,7 @@ def get_freer_gpu(verbose=True):
     except:
         if torch.cuda.device_count() == 0:
             warn("Couldn't find free GPU")
-            return torch.device(f"cuda")
+            return torch.device("cuda")
 
         else:
             # Note this is slower and will return slightly different values to nvidia-smi
@@ -61,13 +58,16 @@ res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
+use = 'reservoir'
 mode = "random"
-n_linops = 20
+n_linops = 1
 n_layers = None
 save = True
 # Bounds for n_res = 100
-res_scale_bounds = [0, 2]
-input_scale_bounds = [0, 2]
+# res_scale_bounds = [0, 2]
+# input_scale_bounds = [0, 2]
+# res_scale_bounds = [1.6, 1.8]
+# input_scale_bounds = [0.2, 0.4]
 # res_scale_bounds = [1.62, 1.92]
 # input_scale_bounds = [1, 1.3]
 # res_scale_bounds = [1.73, 1.83]
@@ -76,6 +76,12 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.137, 1.162]
 # res_scale_bounds = [1.785, 1.795]
 # input_scale_bounds = [1.145, 1.155]
+
+# structured random
+res_scale_bounds = [0, 2]
+input_scale_bounds = [0, 2]
+# res_scale_bounds = [1.70, 1.75]
+# input_scale_bounds = [0.25, 0.30]
 
 # Bounds for n_res = 30
 # res_scale_bounds = [0, 2]
@@ -86,7 +92,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}{n_linops}{mode}{n_layers if n_layers is not None else '_'}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}{mode}{n_layers if n_layers is not None else '_'}_{n_linops}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -100,7 +106,7 @@ metric_erf = stability_test(
     n_layers=n_layers,
     device=device,
     seed=seed,
-    use='network',
+    use=use,
     mode=mode,
 )
 

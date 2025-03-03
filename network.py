@@ -91,7 +91,7 @@ class Network(torch.nn.Module):
             raise ValueError("Invalid mode")
 
     def forward_single(
-        self, sequence, state=None, n_history=20, weight_scale=1.0, bias_scale=None
+        self, sequence, state=None, n_history=10, weight_scale=1.0, bias_scale=None
     ):
         """Forward pass on a single scale
 
@@ -207,5 +207,6 @@ class Network(torch.nn.Module):
             state2 = state2 / torch.norm(state2)
             state2 = state2.repeat(n_scales, 1)
         states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales)
+        self.counter = 0
         states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales)
         return torch.sum((states1 - states2) ** 2, dim=2)
