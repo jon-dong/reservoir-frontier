@@ -66,40 +66,41 @@ def stability_test(
     # Initializel reservoir and initial states
     W_in = torch.randn(res_size, input_size).to(device)
     W_res = torch.randn(res_size, res_size).to(device)
-    initial_state1 = torch.randn(res_size).to(device) / np.sqrt(res_size)
+    initial_state1 = torch.randn(res_size).to(device)
     initial_state1 = initial_state1 / torch.norm(initial_state1)
-    initial_state2 = torch.randn(res_size).to(device) / np.sqrt(res_size)
+    initial_state2 = torch.randn(res_size).to(device)
     initial_state2 = initial_state2 / torch.norm(initial_state2)
 
-    for i_in, input_scale in tqdm(enumerate(input_scales)):
-        if use == 'reservoir':
-            RC = CustomReservoir(
+    # make sure to use the same instance
+    if use == 'reservoir':
+        model = CustomReservoir(
                 f="erf",
                 input_size=input_size,
                 res_size=res_size,
                 W_res=W_res,
                 W_in=W_in,
-                input_scale=input_scale,
+                input_scale=None,
                 device=device,
             )
-            rc_metric = RC.stability_test(
-                sequence, res_scales, state1=initial_state1, state2=initial_state2
-            )
-        elif use == 'network':
-            net = Network(
+    elif use == 'network':
+        model = Network(
                 input_size=input_size,
                 state_size=res_size,
-                input_scale=input_scale,
-                W_res=W_res,
+                input_scale=None,
+                #! we don't use the presampled W_res
+                W_res=None,
                 W_in=W_in,
                 n_linops=n_linops,
                 n_layers=n_layers,
                 mode=mode,
                 depth=input_len,
                 device=device,
-            )
-            rc_metric = net.stability_test(
-                sequence, res_scales, state1=initial_state1, state2=initial_state2
-            )
+            ) 
+
+    for i_in, input_scale in tqdm(enumerate(input_scales)):
+        model.input_scale = input_scale
+        rc_metric = model.stability_test(
+            sequence, res_scales, state1=initial_state1, state2=initial_state2
+        )
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
     return final_metric

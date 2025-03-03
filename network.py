@@ -24,7 +24,8 @@ class Network(torch.nn.Module):
         self.state_size = state_size
         self.input_scale = input_scale
         self.W_in = W_in.to(dtype).to(device)
-        self.W_res = W_res.to(dtype).to(device)
+        if W_res is not None:
+            self.W_res = W_res.to(dtype).to(device)
         self.depth = depth
         self.dtype = dtype
         self.device = device
