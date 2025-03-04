@@ -53,7 +53,7 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()  # TOCHANGE 1/2
 
-seed = 0
+seed = 2
 res_size = 100
 input_size = 100
 input_len = 10000
@@ -61,7 +61,7 @@ resolution = 1000
 use = 'network'
 mode = "structured_random"
 n_linops = 1
-n_layers = 2
+n_layers = 19
 save = True
 # Bounds for n_res = 100
 # res_scale_bounds = [0, 2]
@@ -92,7 +92,7 @@ input_scale_bounds = [0, 2]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now()
-filename = f"{now}{mode}{n_layers if n_layers is not None else '_'}_{n_linops}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
+filename = f"{now}{mode}{n_layers if mode=='structured_random' else ''}x{n_linops}{res_scale_bounds}_input{input_scale_bounds}_HR"  # TOCHANGE 2/2
 
 metric_erf = stability_test(
     res_size=res_size,

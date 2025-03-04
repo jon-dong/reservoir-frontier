@@ -207,6 +207,7 @@ class Network(torch.nn.Module):
             state2 = torch.randn(self.state_size).to(self.dtype).to(self.device)
             state2 = state2 / torch.norm(state2)
             state2 = state2.repeat(n_scales, 1)
+        self.counter = 0
         states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales)
         self.counter = 0
         states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales)
