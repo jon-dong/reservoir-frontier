@@ -53,14 +53,14 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()  # TOCHANGE 1/2
 
-seed = 4
+seed = 3
 res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
 use = 'network'
 mode = "random"
-n_linops = 1
+n_linops = 10000
 n_layers = None 
 save = True
 # Bounds for n_res = 100
