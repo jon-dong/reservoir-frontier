@@ -1,61 +1,166 @@
-import numpy as np
-import torch
+import datetime
+import os
+from warnings import warn
+
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn
+import torch
+
 from utils import stability_test
 
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:3" if use_cuda else "cpu")  # TOCHANGE 1/3
+def get_freer_gpu(verbose=True):
+    """
+    Returns the GPU device with the most free memory.
 
-filename = '241201usual_input_input_len10000'  # TOCHANGE 2/3
-seed = 0
+    Use in conjunction with ``torch.cuda.is_available()``.
+    Attempts to use ``nvidia-smi`` with ``bash``, if these don't exist then uses torch commands to get free memory.
+
+    :param bool verbose: print selected GPU index and memory
+    :return torch.device device: selected torch cuda device.
+    """
+    try:
+        os.system(
+            "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"
+            if os.name == "posix"
+            else 'bash -c "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"'
+        )
+        memory_available = [int(x.split()[2]) for x in open("tmp", "r").readlines()]
+        idx, mem = np.argmax(memory_available), np.max(memory_available)
+        device = torch.device(f"cuda:{idx}")
+
+    except:
+        if torch.cuda.device_count() == 0:
+            warn("Couldn't find free GPU")
+            return torch.device("cuda")
+
+        else:
+            # Note this is slower and will return slightly different values to nvidia-smi
+            idx, mem = max(
+                (
+                    (d, torch.cuda.mem_get_info(d)[0] / 1048576)
+                    for d in range(torch.cuda.device_count())
+                ),
+                key=lambda x: x[1],
+            )
+            device = torch.device(f"cuda:{idx}")
+
+    if verbose:
+        print(f"Selected GPU {idx} with {mem} MiB free memory ")
+
+    return device
+
+device = get_freer_gpu()  # TOCHANGE 1/2
+
+seed = 4
 res_size = 100
 input_size = 100
 input_len = 10000
-resolution = 500
-res_scale_bounds = [1.62, 1.92]
-input_scale_bounds = [1., 1.3]
-# res_scale_bounds = [0, 3]
+resolution = 1000
+use = 'network'
+mode = "random"
+n_linops = 1
+n_layers = None 
+save = True
+# Bounds for n_res = 100
+# res_scale_bounds = [0, 2]
 # input_scale_bounds = [0, 2]
-metric_erf = stability_test(res_size=res_size, input_size=input_size, input_len=input_len, resolution=resolution, constant_input=False,
-                            res_scale_bounds=res_scale_bounds, input_scale_bounds=input_scale_bounds, device=device, seed=seed)
+# res_scale_bounds = [1.6, 1.8]
+# input_scale_bounds = [0.2, 0.4]
+# res_scale_bounds = [1.62, 1.92]
+# input_scale_bounds = [1, 1.3]
+# res_scale_bounds = [1.73, 1.83]
+# input_scale_bounds = [1.1, 1.2]
+# res_scale_bounds = [1.777, 1.802]
+# input_scale_bounds = [1.137, 1.162]
+# res_scale_bounds = [1.785, 1.795]
+# input_scale_bounds = [1.145, 1.155]
+
+# structured random
+res_scale_bounds = [0, 2]
+input_scale_bounds = [0, 2]
+# res_scale_bounds = [1.70, 1.75]
+# input_scale_bounds = [0.25, 0.30]
+
+# Bounds for n_res = 30
+# res_scale_bounds = [0, 2]
+# input_scale_bounds = [0, 2]
+# res_scale_bounds = [1.75, 2.05]
+# input_scale_bounds = [1, 1.3]
+# res_scale_bounds = [1.87, 1.97]
+# input_scale_bounds = [1.1, 1.2]
+# get current date
+now = datetime.datetime.now()
+filename = f"{now}{mode}{n_layers if mode=='structured_random' else ''}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"  # TOCHANGE 2/2
+
+metric_erf = stability_test(
+    res_size=res_size,
+    input_size=input_size,
+    input_len=input_len,
+    resolution=resolution,
+    constant_input=False,
+    res_scale_bounds=res_scale_bounds,
+    input_scale_bounds=input_scale_bounds,
+    n_linops=n_linops,
+    n_layers=n_layers,
+    device=device,
+    seed=seed,
+    use=use,
+    mode=mode,
+)
 
 plt.figure()
 seaborn.set_style("whitegrid")
 img = metric_erf.T
 threshold = 1e-5
-img[img<threshold]= threshold
+img[img < threshold] = threshold
 input_min = 0
 input_max = 1
 res_min = 0
 res_max = 1
-plt.imshow(img[int(input_min*resolution):int(input_max*resolution), int(res_min*resolution):int(res_max*resolution)], norm=matplotlib.colors.LogNorm(vmin= 1e-10, vmax = 1))#
+plt.imshow(
+    img[
+        int(input_min * resolution) : int(input_max * resolution),
+        int(res_min * resolution) : int(res_max * resolution),
+    ],
+    norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
+)  #
 
 ax = plt.gca()
 plt.grid(False)
 plt.clim(threshold, 1)
 plt.colorbar()
 
-input_scale_min = input_scale_bounds[0] + input_min * (input_scale_bounds[1] - input_scale_bounds[0])
-input_scale_max = input_scale_bounds[0] + input_max * (input_scale_bounds[1] - input_scale_bounds[0])
-res_scale_min = res_scale_bounds[0] + res_min * (res_scale_bounds[1] - res_scale_bounds[0])
-res_scale_max = res_scale_bounds[0] + res_max * (res_scale_bounds[1] - res_scale_bounds[0])
-ylab = np.linspace(input_scale_min, input_scale_max, num=int(input_scale_bounds[1]+1))
-xlab = np.linspace(res_scale_min, res_scale_max, num=int(res_scale_bounds[1]+1))
-indXx = np.linspace(0, resolution-1, num=xlab.shape[0]).astype(int)
-indXy = np.linspace(0, resolution-1, num=ylab.shape[0]).astype(int)
+input_scale_min = input_scale_bounds[0] + input_min * (
+    input_scale_bounds[1] - input_scale_bounds[0]
+)
+input_scale_max = input_scale_bounds[0] + input_max * (
+    input_scale_bounds[1] - input_scale_bounds[0]
+)
+res_scale_min = res_scale_bounds[0] + res_min * (
+    res_scale_bounds[1] - res_scale_bounds[0]
+)
+res_scale_max = res_scale_bounds[0] + res_max * (
+    res_scale_bounds[1] - res_scale_bounds[0]
+)
+ylab = np.linspace(input_scale_min, input_scale_max, num=int(input_scale_bounds[1] + 1))
+xlab = np.linspace(res_scale_min, res_scale_max, num=int(res_scale_bounds[1] + 1))
+indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
+indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
 
 ax.set_xticks(indXx)
 ax.set_xticklabels(xlab)
 ax.set_yticks(indXy)
 ax.set_yticklabels(ylab)
-ax.set_xlabel('Reservoir scale')
-ax.set_ylabel('Input scale')
-ax.set_title('Asymptotic stability metric\nfor $f=$erf')
+ax.set_xlabel("Reservoir scale")
+ax.set_ylabel("Input scale")
+ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
-np.save('data/' + filename + '.npy', metric_erf)
-np.save('data/' + filename + '_xlab.npy', xlab)
-np.save('data/' + filename + '_ylab.npy', ylab)
-plt.savefig('fig/' + filename + '.png')
+if save is True:
+    np.save("data/" + filename + ".npy", metric_erf)
+    np.save("data/" + filename + "_xlab.npy", xlab)
+    np.save("data/" + filename + "_ylab.npy", ylab)
+    plt.savefig("fig/" + filename + ".png")
+
 plt.show()
