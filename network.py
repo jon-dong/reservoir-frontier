@@ -146,7 +146,7 @@ class Network(torch.nn.Module):
         """forward pass on multiple state scales for a single input.
 
         params:
-        n_history: number of the last states to keep, to be used for averagin
+        n_history: number of the last states to keep, to be used for averaging
         returns:
         res: shape (n_scales, n_history, state_size)"""
         assert sequence.shape[0] == self.depth, "Depth mismatch"

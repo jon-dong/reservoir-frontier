@@ -51,7 +51,7 @@ def get_freer_gpu(verbose=True):
 
     return device
 
-device = get_freer_gpu()  # TOCHANGE 1/2
+device = get_freer_gpu()
 
 seed = 3
 res_size = 100
@@ -59,9 +59,9 @@ input_size = 100
 input_len = 10000
 resolution = 1000
 use = 'network'
-mode = "random"
-n_linops = 10000
-n_layers = None 
+mode = "structured_random"
+n_linops = 1
+n_layers = 2.5
 save = True
 # Bounds for n_res = 100
 # res_scale_bounds = [0, 2]
@@ -78,8 +78,8 @@ save = True
 # input_scale_bounds = [1.145, 1.155]
 
 # structured random
-res_scale_bounds = [0, 2]
-input_scale_bounds = [0, 2]
+res_scale_bounds = [0, 4]
+input_scale_bounds = [0, 4]
 # res_scale_bounds = [1.70, 1.75]
 # input_scale_bounds = [0.25, 0.30]
 
@@ -91,8 +91,8 @@ input_scale_bounds = [0, 2]
 # res_scale_bounds = [1.87, 1.97]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
-now = datetime.datetime.now()
-filename = f"{now}{mode}{n_layers if mode=='structured_random' else ''}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"  # TOCHANGE 2/2
+now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+save_name = f"{now}_{mode}{n_layers if mode=='structured_random' else ''}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -158,9 +158,11 @@ ax.set_ylabel("Input scale")
 ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
 if save is True:
-    np.save("data/" + filename + ".npy", metric_erf)
-    np.save("data/" + filename + "_xlab.npy", xlab)
-    np.save("data/" + filename + "_ylab.npy", ylab)
-    plt.savefig("fig/" + filename + ".png")
+    if not os.path.exists("data/" + save_name):
+        os.makedirs("data/" + save_name)
+    np.save("data/" + save_name + "/" + "metric_erf.npy", metric_erf)
+    np.save("data/" + save_name + "/" + "xlab.npy", xlab)
+    np.save("data/" + save_name + "/" + "ylab.npy", ylab)
+    plt.savefig("fig/" + save_name + ".png")
 
 plt.show()
