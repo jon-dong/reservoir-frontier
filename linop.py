@@ -20,19 +20,26 @@ class Distribution(ABC):
     def sample(self, shape: int|tuple[int, ...]) -> np.ndarray:
         if isinstance(shape, int):
             shape = (shape,)
+        
         # compute the maximum value of the pdf if not yet computed
         if self.max_pdf is None:
             self.max_pdf = np.max(
                 self.pdf(np.linspace(self.min_supp + 1e-8, self.max_supp - 1e-8, 10000))
             )
 
-        samples = []
-        while len(samples) < np.prod(shape):
-            x = np.random.uniform(self.min_supp, self.max_supp, size=1)
-            y = np.random.uniform(0, self.max_pdf, size=1)
-            if y < self.pdf(x):
-                samples.append(x)
-        return np.array(samples).reshape(shape)
+        n_samples = np.prod(shape)
+        samples = np.empty(0)
+        while samples.shape[0] < n_samples:
+            n_need = int(n_samples - samples.shape)
+            x = np.random.uniform(self.min_supp, self.max_supp, size=n_need)
+            y = np.random.uniform(0, self.max_pdf, size=n_need)
+            accepted = x[np.where(y < self.pdf(x))]
+            if accepted.shape[0] >= n_need:
+                samples = np.append(samples, accepted[:n_need])
+                break
+            else:
+                samples = np.append(samples, accepted)
+        return samples.reshape(shape)
 
 
 class MarchenkoPastur(Distribution):
