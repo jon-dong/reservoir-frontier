@@ -61,13 +61,32 @@ resolution = 1000
 use = 'network'
 mode = "structured_random"
 n_linops = 1
-n_layers = 2.5
+n_layers = 2
+mags = ["marchenko", "unit"]
+osr = 1.5
+additional = 'marchenko1p5'
+if mode == 'random':
+    n_layers = None
+    mags = None
+    osr = None
 save = True
 # Bounds for n_res = 100
 # res_scale_bounds = [0, 2]
 # input_scale_bounds = [0, 2]
-# res_scale_bounds = [1.6, 1.8]
-# input_scale_bounds = [0.2, 0.4]
+res_scale_bounds = [0, 4]
+input_scale_bounds = [0, 4]
+# res_scale_bounds = [3, 4]
+# input_scale_bounds = [3, 4]
+# res_scale_bounds = [3.75, 4.0]
+# input_scale_bounds = [3.25, 3.5]
+# res_scale_bounds = [3.75, 3.8]
+# input_scale_bounds = [3.25, 3.3]
+# res_scale_bounds = [1.51, 1.53]
+# input_scale_bounds = [0.67, 0.69]
+# res_scale_bounds = [1.4, 1.6]
+# input_scale_bounds = [0.6, 0.8]
+# res_scale_bounds = [1.5, 1.55]
+# input_scale_bounds = [0.65, 0.7]
 # res_scale_bounds = [1.62, 1.92]
 # input_scale_bounds = [1, 1.3]
 # res_scale_bounds = [1.73, 1.83]
@@ -77,9 +96,6 @@ save = True
 # res_scale_bounds = [1.785, 1.795]
 # input_scale_bounds = [1.145, 1.155]
 
-# structured random
-res_scale_bounds = [0, 4]
-input_scale_bounds = [0, 4]
 # res_scale_bounds = [1.70, 1.75]
 # input_scale_bounds = [0.25, 0.30]
 
@@ -92,7 +108,7 @@ input_scale_bounds = [0, 4]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_name = f"{now}_{mode}{n_layers if mode=='structured_random' else ''}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
+save_name = f"{now}_{mode}{n_layers if mode=='structured_random' else ''}{additional}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -104,6 +120,8 @@ metric_erf = stability_test(
     input_scale_bounds=input_scale_bounds,
     n_linops=n_linops,
     n_layers=n_layers,
+    mags=mags,
+    osr=osr,
     device=device,
     seed=seed,
     use=use,

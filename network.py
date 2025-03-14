@@ -16,6 +16,8 @@ class Network(torch.nn.Module):
         n_linops=1,
         n_layers=None,
         mode="random",
+        mags=["unit", "unit"],
+        osr=1.5,
         dtype=torch.float64,
         device="cpu",
     ):
@@ -35,8 +37,9 @@ class Network(torch.nn.Module):
                 state_size=state_size, dtype=dtype, device=device
             ) for _ in range(n_linops)]
         elif mode == 'structured_random':
+            assert len(mags) == n_layers or n_layers - len(mags) == 0.5, "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
             self.linops = [ linop.StructuredRandom(
-                shape=(state_size,), n_layers=n_layers, dtype=dtype, device=device
+                shape=(state_size,), n_layers=n_layers, mags=mags, osr=osr, dtype=dtype, device=device
             ) for _ in range(n_linops) ]
         self.n_linops = n_linops
         self.counter = 0

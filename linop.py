@@ -17,7 +17,9 @@ class Distribution(ABC):
     def pdf(self, x) -> np.ndarray:
         pass
 
-    def sample(self, shape: tuple[int, ...]) -> np.ndarray:
+    def sample(self, shape: int|tuple[int, ...]) -> np.ndarray:
+        if isinstance(shape, int):
+            shape = (shape,)
         # compute the maximum value of the pdf if not yet computed
         if self.max_pdf is None:
             self.max_pdf = np.max(
@@ -34,18 +36,21 @@ class Distribution(ABC):
 
 
 class MarchenkoPastur(Distribution):
-    def __init__(self, m: int, n: int, sigma=None):
-        self.m = m
-        self.n = n
-        # when oversampling ratio is 1, the distribution has min support at 0, leading to a very high peak near 0 and numerical issues.
-        self.gamma = n / m
-        if sigma is not None:
-            self.sigma = sigma
-        else:
-            # automatically set sigma to make E[|x|^2] = 1
-            # self.sigma = (1+self.gamma)**(-0.25)
-            self.sigma = 1
-        self.lamb = m / n
+    """
+    Marchenko-Pastur distribution.
+
+    It describes the asymptotic eigenvalue distribution of the matrix X = 1/sqrt(m) A^T A, where A is a matrix of shape m times n and sampled i.i.d. from a distribution with zero mean and variance sigma^2
+    """
+    def __init__(self, alpha:float, sigma:float=1.0):
+        """
+        alpha: oversampling ratio
+        sigma: standard deviation of the element distribution
+        """
+        assert alpha >= 0, 'oversampling ratio must be nonnegative' 
+        assert sigma >= 0, 'standard deviation must be nonnegative'
+        self.alpha = alpha # oversampling ratio
+        self.gamma = 1/alpha
+        self.sigma = 1
         self.min_supp = self.sigma**2 * (1 - math.sqrt(self.gamma)) ** 2
         self.max_supp = self.sigma**2 * (1 + math.sqrt(self.gamma)) ** 2
         super().__init__()
@@ -58,29 +63,36 @@ class MarchenkoPastur(Distribution):
             2 * np.pi * self.sigma**2 * self.gamma * x
         )
 
-    def sample(self, shape, include_zero=False, equisampling=False) -> np.ndarray:
+    def sample(self,
+               shape,
+               normalized=False,
+               include_zero=True,
+               ) -> np.ndarray:
         """using acceptance-rejection sampling if oversampling ratio is more than 1, otherwise using the eigenvalues sampled from a real matrix"""
-        if self.m < self.n:
-            # there will be n - m zero eigenvalues, the rest nonzero eigenvalues follow the Marchenko-Pastur distribution
+        n_samples = np.prod(shape)
+        if self.alpha < 1.0:
+            # undersampling
+            # there will be zero eigenvalues, the rest nonzero eigenvalues follow the pdf
             if include_zero is True:
-                n_zeros = int(np.prod(shape) / self.n * (self.n - self.m))
-                nonzeros = super().sample((np.prod(shape) - n_zeros,))
+                n_zeros = int(n_samples * (1 - self.alpha))
+                nonzeros = super().sample((n_samples - n_zeros,))
                 zeros = np.zeros(n_zeros)
-                return np.random.permutation(np.concatenate((nonzeros, zeros))).reshape(
-                    shape
-                )
-            elif equisampling:
-                sub_distribution = MarchenkoPastur(self.n, self.n)
-                return sub_distribution.sample(shape)
+                samples = np.random.permutation(np.concatenate((nonzeros, zeros)))
             else:
-                return super().sample(shape)
-        elif self.m == self.n:
-            # compute the eigenvalues from a real matrix and use it as the samples
-            X = 1 / np.sqrt(self.m) * th.randn((self.m, self.n), dtype=th.cfloat)
-            eigenvalues_X, _ = th.linalg.eig(X.conj().T @ X)
-            return np.array(eigenvalues_X).reshape(shape)
+                samples = super().sample((n_samples,))
+        elif self.alpha == 1.0:
+            # equisampling
+            #! The distribution has min support at 0, leading to a very high peak near 0 and difficulty to sample from acceptance-rejection sampling
+            #! Instead, we directly eigenvalue decompose a matrix to get the eigenvalues 
+            X = 1 / np.sqrt(n_samples) * th.randn((n_samples, n_samples), dtype=th.cfloat)
+            samples, _ = th.linalg.eig(X.conj().T @ X)
         else:
-            return super().sample(shape)
+            # oversampling
+            samples = super().sample(shape)
+        if normalized:
+            # normalize the samples such that E[x^2] = 1
+            samples = samples / np.sqrt(1+self.gamma) / (self.sigma**2)
+        return samples.reshape(shape)
 
     def mean(self):
         return self.sigma**2
@@ -148,8 +160,8 @@ class StructuredRandom(LinOp):
         self,
         shape: tuple,
         n_layers: int | float,
-        mags=["marchenko", "unit"],
-        oversampling_ratio=1.5,
+        mags=["unit", "unit"],
+        osr=1.5,
         dtype=th.float64,
         device=th.device("cpu"),
     ):
@@ -165,10 +177,9 @@ class StructuredRandom(LinOp):
                     Rademacher(shape, dtype, device)
                 )
             elif mag == "marchenko":
-                self.diagonals.append(
-                    MarchenkoPastur(oversampling_ratio * shape[0], shape[0]).sample(shape)
-                    * Rademacher(shape, dtype, device)
-                )
+                diagonal = Rademacher(shape, dtype, device)
+                diagonal.values = th.tensor(MarchenkoPastur(osr).sample(shape)).to(dtype).to(device) * diagonal.values
+                self.diagonals.append(diagonal)
         self.dtype = dtype
         self.device = device
         # if n_layers - math.floor(n_layers) > 0:
