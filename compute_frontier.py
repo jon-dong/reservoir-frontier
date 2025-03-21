@@ -53,18 +53,19 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()
 
-seed = 3
+seed = 2
 res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
 use = 'network'
-mode = "structured_random"
+mode = "random_conv"
 n_linops = 1
 n_layers = 2
 mags = ["marchenko", "unit"]
-osr = 1.5
-additional = 'marchenko1p5'
+osr = 1.3
+kernel_size = 19
+additional = ''
 if mode == 'random':
     n_layers = None
     mags = None
@@ -108,7 +109,7 @@ input_scale_bounds = [0, 4]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_name = f"{now}_{mode}{n_layers if mode=='structured_random' else ''}{additional}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
+save_name = f"{now}_{mode}{kernel_size if mode=='random_conv' else ''}{n_layers if mode=='structured_random' else ''}{additional}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
 
 metric_erf = stability_test(
     res_size=res_size,
@@ -122,6 +123,7 @@ metric_erf = stability_test(
     n_layers=n_layers,
     mags=mags,
     osr=osr,
+    kernel_size=kernel_size,
     device=device,
     seed=seed,
     use=use,

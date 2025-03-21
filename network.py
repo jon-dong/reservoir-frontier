@@ -16,6 +16,7 @@ class Network(torch.nn.Module):
         n_linops=1,
         n_layers=None,
         mode="random",
+        kernel_size=None,
         mags=["unit", "unit"],
         osr=1.5,
         dtype=torch.float64,
@@ -41,6 +42,10 @@ class Network(torch.nn.Module):
             self.linops = [ linop.StructuredRandom(
                 shape=(state_size,), n_layers=n_layers, mags=mags, osr=osr, dtype=dtype, device=device
             ) for _ in range(n_linops) ]
+        elif mode == 'random_conv':
+            self.linops = [linop.RandomConvolution(
+                shape=(state_size,), kernel_size=kernel_size, dtype=dtype, device=device
+            ) for _ in range(n_linops)]
         self.n_linops = n_linops
         self.counter = 0
         self.f = torch.erf
@@ -90,6 +95,8 @@ class Network(torch.nn.Module):
         if self.mode == 'random':
             return aft_act / np.sqrt(self.state_size)
         elif self.mode == 'structured_random':
+            return aft_act
+        elif self.mode == 'random_conv':
             return aft_act
         else:
             raise ValueError("Invalid mode")

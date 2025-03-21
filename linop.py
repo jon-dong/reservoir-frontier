@@ -185,7 +185,7 @@ class StructuredRandom(LinOp):
                 )
             elif mag == "marchenko":
                 diagonal = Rademacher(shape, dtype, device)
-                diagonal.values = th.tensor(MarchenkoPastur(osr).sample(shape)).to(dtype).to(device) * diagonal.values
+                diagonal.values = th.tensor(MarchenkoPastur(osr).sample(shape, normalized=True)).to(dtype).to(device) * diagonal.values
                 self.diagonals.append(diagonal)
         self.dtype = dtype
         self.device = device
@@ -204,4 +204,28 @@ class StructuredRandom(LinOp):
         for i in range(math.floor(self.n_layers)):
             x = self.diagonals[i].apply(x)
             x = th.fft.fft(x, norm="ortho")
+        return x
+
+
+class RandomConvolution(LinOp):
+    def __init__(
+        self,
+        shape: tuple,
+        kernel_size: int,
+        dtype=th.float64,
+        device=th.device("cpu"),
+    ):
+        self.in_shape = shape
+        self.out_shape = shape
+        self.kernel_size = kernel_size
+        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding=kernel_size // 2).to(dtype).to(device)
+        self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(device)/np.sqrt(kernel_size)
+        self.dtype = dtype
+        self.device = device
+
+    def apply(self, x):
+        x = x.unsqueeze(1)
+        with th.no_grad():  # Disable autograd for Conv1d
+            x = self.kernel(x)
+        x = x.squeeze(1)
         return x
