@@ -30,6 +30,7 @@ def stability_test(
     mags=None,
     osr=None,
     kernel_size=None,
+    n_channels=None,
     average=10,
     device="cpu",
     seed=0,
@@ -74,39 +75,46 @@ def stability_test(
     initial_state2 = torch.randn(res_size).to(device)
     initial_state2 = initial_state2 / torch.norm(initial_state2)
 
+    models = []
+
     # make sure to use the same instance
-    if use == 'reservoir':
-        model = CustomReservoir(
-                f="erf",
-                input_size=input_size,
-                res_size=res_size,
-                W_res=W_res,
-                W_in=W_in,
-                input_scale=None,
-                device=device,
-            )
-    elif use == 'network':
-        model = Network(
-                input_size=input_size,
-                state_size=res_size,
-                input_scale=None,
-                #! we don't use the presampled W_res
-                W_res=None,
-                W_in=W_in,
-                n_linops=n_linops,
-                n_layers=n_layers,
-                mags=mags,
-                osr=osr,
-                kernel_size=kernel_size,
-                mode=mode,
-                depth=input_len,
-                device=device,
-            ) 
+    for _ in range(n_channels):
+        if use == 'reservoir':
+            model = CustomReservoir(
+                    f="erf",
+                    input_size=input_size,
+                    res_size=res_size,
+                    W_res=W_res,
+                    W_in=W_in,
+                    input_scale=None,
+                    device=device,
+                )
+        elif use == 'network':
+            model = Network(
+                    input_size=input_size,
+                    state_size=res_size,
+                    input_scale=None,
+                    #! we don't use the presampled W_res
+                    W_res=None,
+                    W_in=W_in,
+                    n_linops=n_linops,
+                    n_layers=n_layers,
+                    mags=mags,
+                    osr=osr,
+                    kernel_size=kernel_size,
+                    mode=mode,
+                    depth=input_len,
+                    device=device,
+                ) 
+        models.append(model)
 
     for i_in, input_scale in tqdm(enumerate(input_scales)):
-        model.input_scale = input_scale
-        rc_metric = model.stability_test(
-            sequence, res_scales, state1=initial_state1, state2=initial_state2
-        )
+        rc_metric = torch.zeros(resolution, 20).to(device)
+        for i in range(n_channels):
+            models[i].input_scale = input_scale
+            rc_metric += models[i].stability_test(
+                sequence, res_scales, state1=initial_state1, state2=initial_state2
+            ) # return size (resolution, history_len)
+        rc_metric = rc_metric / n_channels # normalize to have same error scale
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
     return final_metric

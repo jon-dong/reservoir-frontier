@@ -53,7 +53,7 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()
 
-seed = 2
+seed = 3
 res_size = 100
 input_size = 100
 input_len = 10000
@@ -64,7 +64,8 @@ n_linops = 1
 n_layers = 2
 mags = ["marchenko", "unit"]
 osr = 1.3
-kernel_size = 19
+kernel_size = 101
+n_channels = 1
 additional = ''
 if mode == 'random':
     n_layers = None
@@ -124,6 +125,7 @@ metric_erf = stability_test(
     mags=mags,
     osr=osr,
     kernel_size=kernel_size,
+    n_channels = n_channels,
     device=device,
     seed=seed,
     use=use,
