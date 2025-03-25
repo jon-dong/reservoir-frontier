@@ -1,5 +1,8 @@
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
+import porespy as ps
+import os
 from tqdm import tqdm
 from Reservoir import CustomReservoir
 
@@ -51,3 +54,61 @@ def stability_test(res_size=100, input_size=100, input_len=100, resolution=20, c
         rc_metric = RC.stability_test(input_data, res_scale_list, initial_state1=initial_state1, initial_state2=initial_state2)
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
     return final_metric
+
+def extract_edges(X):
+  """
+  define edges as sign changes in the scalar representing convergence or
+  divergence rate -- on one side of the edge training converges,
+  while on the other side of the edge training diverges
+  """
+
+  Y = np.stack((X[1:,1:], X[:-1,1:], X[1:,:-1], X[:-1,:-1]), axis=-1)
+  Z = np.sign(np.max(Y, axis=-1)*np.min(Y, axis=-1))
+  return Z<0
+
+def estimate_fractal_dimension(hist_video, title_plot=None):
+  '''
+  Estimates the fractal dimension of a sequence of images
+
+  '''
+  edges = [extract_edges(U) for U in hist_video]#U[0]
+  box_counts = [ps.metrics.boxcount(U) for U in edges]
+  all_images = np.concatenate([bc.slope for bc in box_counts])
+
+
+  if title_plot is not None:
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+    fig.suptitle(title_plot)
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
+    ax1.set_xlabel('box edge length')
+    ax1.set_ylabel('number of boxes spanning phases')
+    ax2.set_xlabel('box edge length')
+    ax2.set_ylabel('Fractal Dimension')
+    ax2.set_xscale('log')
+
+    for bc in box_counts: # plotting for each zooming
+      print(f'Box size: {bc.size}, fractal dimension estimate: {bc.slope}')
+      ax1.plot(bc.size, bc.count,'-o')
+      ax2.plot(bc.size, bc.slope,'-o');
+    plt.savefig(title_plot+'.pdf')
+
+  mfd = np.median(all_images) # getting the median of slopes (10 box sizes) over all the images
+  print(f'median fractal dimension estimate {mfd}')
+
+  return mfd
+
+def fractal_dim_folder(folder, title_plot=None):
+    '''
+    Computes the fractal dimension for all the .npz files contained in a specific folder
+    '''
+    hist_video= []
+    for file in os.listdir(folder):
+        img = np.load(folder+file,allow_pickle=True)
+        img[img<1e-3]=-1
+        img[img>=1e-3]= 1
+        hist_video.append(img)
+    estimate_fractal_dimension(hist_video, title_plot)
+
+if __name__=='__main__':
+   fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
