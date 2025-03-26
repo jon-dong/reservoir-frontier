@@ -53,20 +53,23 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()
 
-seed = 3
+seed = 0
 res_size = 100
 input_size = 100
 input_len = 10000
 resolution = 1000
 use = 'network'
-mode = "random_conv"
+mode = "random"
+# General settings
 n_linops = 1
-n_layers = 2
-mags = ["marchenko", "unit"]
-osr = 1.3
-kernel_size = 101
 n_channels = 1
 additional = ''
+# Settings for structured random
+n_layers = 1.5
+mags = ["marchenko"]
+osr = 1000
+# Settings for random convolution
+kernel_size = 100
 if mode == 'random':
     n_layers = None
     mags = None

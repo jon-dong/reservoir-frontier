@@ -218,7 +218,7 @@ class RandomConvolution(LinOp):
         self.in_shape = shape
         self.out_shape = shape
         self.kernel_size = kernel_size
-        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding=kernel_size // 2, padding_mode='replicate').to(dtype).to(device)
+        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding='same', padding_mode='circular').to(dtype).to(device)
         self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(device)/np.sqrt(kernel_size)
         self.dtype = dtype
         self.device = device
