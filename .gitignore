@@ -2,3 +2,5 @@ __pycache__/
 resenv/
 fig/
 data/
+tmp
+*.pdf

@@ -60,6 +60,9 @@ def extract_edges(X):
   define edges as sign changes in the scalar representing convergence or
   divergence rate -- on one side of the edge training converges,
   while on the other side of the edge training diverges
+  
+  X: a numpy array representing the convergence/divergence with signs
+  return: a binary numpy array representing the edges
   """
 
   Y = np.stack((X[1:,1:], X[:-1,1:], X[1:,:-1], X[:-1,:-1]), axis=-1)
@@ -70,6 +73,8 @@ def estimate_fractal_dimension(hist_video, title_plot=None):
   '''
   Estimates the fractal dimension of a sequence of images
 
+  hist_video: a list of images as numpy arrays containing the convergence/divergence scheme
+  return: the median fractal dimension estimate
   '''
   edges = [extract_edges(U) for U in hist_video]#U[0]
   box_counts = [ps.metrics.boxcount(U) for U in edges]
