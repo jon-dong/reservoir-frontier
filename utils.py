@@ -52,7 +52,7 @@ def stability_test(
     torch.manual_seed(seed)
     if not constant_input:
         sequence = torch.randn(input_len, input_size).to(device)
-        for i in range(input_len):  # normalize input at each timestep
+        for i in range(input_len):  # normalize input at each time step
             sequence[i, :] = sequence[i, :] / torch.norm(sequence[i, :])
     else:
         sequence = torch.randn(input_size).to(device)
@@ -67,7 +67,7 @@ def stability_test(
     )
     final_metric = torch.zeros(resolution, resolution)
 
-    # Initializel reservoir and initial states
+    # Initialize reservoir and initial states
     W_in = torch.randn(res_size, input_size).to(device)
     W_res = torch.randn(res_size, res_size).to(device)
     initial_state1 = torch.randn(res_size).to(device)
