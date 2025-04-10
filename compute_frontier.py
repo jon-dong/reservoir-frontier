@@ -53,17 +53,21 @@ def get_freer_gpu(verbose=True):
 
 device = get_freer_gpu()
 
-seed = 0
+seed = 1
 res_size = 100
 input_size = 100
 input_len = 10000
-resolution = 1000
+resolution = 1000 # number of scales
 use = 'network'
 mode = "random"
+stability_mode = "sensitivity"
+noise_level = 0.5 # for sensitivity analysis
 # General settings
 n_linops = 1
 n_channels = 1
-additional = ''
+residual_length = None
+residual_interval = None
+additional = '_sensi0p5_'
 # Settings for structured random
 n_layers = 1.5
 mags = ["marchenko"]
@@ -87,7 +91,7 @@ input_scale_bounds = [0, 4]
 # res_scale_bounds = [3.75, 3.8]
 # input_scale_bounds = [3.25, 3.3]
 # res_scale_bounds = [1.51, 1.53]
-# input_scale_bounds = [0.67, 0.69]
+# input_scale_bounds = [0.96, 0.98]
 # res_scale_bounds = [1.4, 1.6]
 # input_scale_bounds = [0.6, 0.8]
 # res_scale_bounds = [1.5, 1.55]
@@ -129,6 +133,10 @@ metric_erf = stability_test(
     osr=osr,
     kernel_size=kernel_size,
     n_channels = n_channels,
+    residual_length=residual_length,
+    residual_interval=residual_interval,
+    stability_mode=stability_mode,
+    noise_level=noise_level,
     device=device,
     seed=seed,
     use=use,

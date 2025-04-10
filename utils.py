@@ -31,6 +31,10 @@ def stability_test(
     osr=None,
     kernel_size=None,
     n_channels=None,
+    residual_length=None,
+    residual_interval=None,
+    stability_mode=None,
+    noise_level=None,
     average=10,
     device="cpu",
     seed=0,
@@ -93,6 +97,7 @@ def stability_test(
             model = Network(
                     input_size=input_size,
                     state_size=res_size,
+                    depth=input_len,
                     input_scale=None,
                     #! we don't use the presampled W_res
                     W_res=None,
@@ -102,8 +107,9 @@ def stability_test(
                     mags=mags,
                     osr=osr,
                     kernel_size=kernel_size,
+                    residual_length=residual_length,
+                    residual_interval=residual_interval,
                     mode=mode,
-                    depth=input_len,
                     device=device,
                 ) 
         models.append(model)
@@ -113,7 +119,7 @@ def stability_test(
         for i in range(n_channels):
             models[i].input_scale = input_scale
             rc_metric += models[i].stability_test(
-                sequence, res_scales, state1=initial_state1, state2=initial_state2
+                sequence, res_scales, state1=initial_state1, state2=initial_state2, mode=stability_mode, noise_level=noise_level
             ) # return size (resolution, history_len)
         rc_metric = rc_metric / n_channels # normalize to have same error scale
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)
