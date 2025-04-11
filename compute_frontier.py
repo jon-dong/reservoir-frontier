@@ -60,14 +60,15 @@ input_len = 10000
 resolution = 1000 # number of scales
 use = 'network'
 mode = "random"
-stability_mode = "sensitivity"
-noise_level = 0.5 # for sensitivity analysis
+stability_mode = "independent"
+normalize = False
+noise_level = 1e-15 # for sensitivity analysis
 # General settings
 n_linops = 1
 n_channels = 1
-residual_length = None
-residual_interval = None
-additional = '_sensi0p5_'
+residual_length = 3
+residual_interval = 3
+additional = '_res3_'
 # Settings for structured random
 n_layers = 1.5
 mags = ["marchenko"]
@@ -84,6 +85,8 @@ save = True
 # input_scale_bounds = [0, 2]
 res_scale_bounds = [0, 4]
 input_scale_bounds = [0, 4]
+# res_scale_bounds = [1.8, 2.2]
+# input_scale_bounds = [2.0, 2.4]
 # res_scale_bounds = [3, 4]
 # input_scale_bounds = [3, 4]
 # res_scale_bounds = [3.75, 4.0]
@@ -141,6 +144,7 @@ metric_erf = stability_test(
     seed=seed,
     use=use,
     mode=mode,
+    normalize=normalize,
 )
 
 plt.figure()

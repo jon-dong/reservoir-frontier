@@ -39,6 +39,7 @@ def stability_test(
     device="cpu",
     seed=0,
     use='reservoir',
+    normalize=False,
     mode=None,
 ):
     """
@@ -119,7 +120,7 @@ def stability_test(
         for i in range(n_channels):
             models[i].input_scale = input_scale
             rc_metric += models[i].stability_test(
-                sequence, res_scales, state1=initial_state1, state2=initial_state2, mode=stability_mode, noise_level=noise_level
+                sequence, res_scales, state1=initial_state1, state2=initial_state2, mode=stability_mode, noise_level=noise_level, normalize=normalize
             ) # return size (resolution, history_len)
         rc_metric = rc_metric / n_channels # normalize to have same error scale
         final_metric[:, i_in] = torch.mean(rc_metric[:, -average:], dim=1)

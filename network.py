@@ -183,6 +183,7 @@ class Network(torch.nn.Module):
         weight_scales=[1.0],
         bias_scale=None,
         n_history=20,
+        normalize=False,
     ):
         """forward pass on multiple state scales for a single input.
 
@@ -227,12 +228,14 @@ class Network(torch.nn.Module):
             )
             # * res connection with pre-activation
             if self.residual_length is not None:
-                if i != 0 and i % self.residual_interval == 0:
-                    # print(f'adding residual connection from layer {i - self.residual_length} to layer {i}')
-                    current += self.hist_states[i - self.residual_length]
+                if (i+1) % self.residual_interval == 0:
+                    # print(f'adding residual connection from layer {i + 1 - self.residual_length} to layer {i + 1}')
+                    current += self.hist_states[i + 1 - self.residual_length]
                 # add new states
                 if i < self.depth - 1:
                     self.hist_states[i + 1] = current
+            if normalize:
+                current = torch.nn.functional.normalize(current, p=2, dim=1)
             if i >= (self.depth - n_history):
                 res[:, i - self.depth + n_history, :] = current
         return res
@@ -245,6 +248,7 @@ class Network(torch.nn.Module):
         state2=None,
         mode="independent",
         noise_level=0.01,
+        normalize=False,
     ):
         """
         Stability test on the same input and different reservoir scales
@@ -272,7 +276,7 @@ class Network(torch.nn.Module):
             state2 = state2 / torch.norm(state2)
 
         self.counter = 0
-        states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales)
+        states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales, normalize=normalize)
         self.counter = 0
-        states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales)
+        states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales, normalize=normalize)
         return torch.sum((states1 - states2) ** 2, dim=2)
