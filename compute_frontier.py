@@ -66,9 +66,9 @@ noise_level = 1e-15 # for sensitivity analysis
 # General settings
 n_linops = 1
 n_channels = 1
-residual_length = 3
-residual_interval = 3
-additional = '_res3_'
+residual_length = 2
+residual_interval = 2
+additional = '_res2start2_'
 # Settings for structured random
 n_layers = 1.5
 mags = ["marchenko"]

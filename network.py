@@ -70,7 +70,7 @@ class Network(torch.nn.Module):
 
         self.residual_length = residual_length
         self.residual_interval = residual_interval
-        self.hist_states = [None] * self.depth
+        self.hist_states = [None] * (self.depth + 1)
 
         self.f = torch.erf
 
@@ -184,6 +184,7 @@ class Network(torch.nn.Module):
         bias_scale=None,
         n_history=20,
         normalize=False,
+        start=2,
     ):
         """forward pass on multiple state scales for a single input.
 
@@ -217,27 +218,26 @@ class Network(torch.nn.Module):
             bias_scale = self.input_scale
         if n_history is None:
             n_history = self.depth
-        self.hist_states[0] = current
+        self.hist_states[0] = current # length depth + 1
         res = torch.zeros(n_scales, n_history, self.state_size).to(self.device)
-        for i in range(self.depth):
+        for i in range(1, self.depth+1):
             current = self.iter_parallel(
                 current,
-                biases[i, :],
+                biases[i-1, :],
                 weight_scales=weight_scales,
                 bias_scale=bias_scale,
             )
             # * res connection with pre-activation
             if self.residual_length is not None:
-                if (i+1) % self.residual_interval == 0:
+                if i > start and (i-start) % self.residual_interval == 0:
                     # print(f'adding residual connection from layer {i + 1 - self.residual_length} to layer {i + 1}')
-                    current += self.hist_states[i + 1 - self.residual_length]
+                    current += self.hist_states[i - self.residual_length]
                 # add new states
-                if i < self.depth - 1:
-                    self.hist_states[i + 1] = current
+                self.hist_states[i] = current
             if normalize:
                 current = torch.nn.functional.normalize(current, p=2, dim=1)
-            if i >= (self.depth - n_history):
-                res[:, i - self.depth + n_history, :] = current
+            if i > (self.depth - n_history):
+                res[:, i - 1 - self.depth + n_history, :] = current
         return res
 
     def stability_test(
