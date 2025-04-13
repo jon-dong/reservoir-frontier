@@ -7,15 +7,14 @@ import linop
 class Network(torch.nn.Module):
     def __init__(
         self,
-        input_size,
-        state_size,
-        input_scale,
+        width,
         depth,
-        W_in,
-        W_res,
+        bias_scale,
+        W_bias,
+        n_hist=20,
         n_linops=1,
         n_layers=None,
-        mode="random",
+        mode="rand",
         residual_length=None,  # the length of the residual connection
         residual_interval=None,  # the distance between two residual connections
         kernel_size=None,
@@ -25,28 +24,28 @@ class Network(torch.nn.Module):
         device="cpu",
     ):
         super().__init__()
-        self.input_size = input_size
-        self.state_size = state_size
-        self.input_scale = input_scale
-        self.W_in = W_in.to(dtype).to(device)
-        if W_res is not None:
-            self.W_res = W_res.to(dtype).to(device)
-        self.depth = depth
+
         self.dtype = dtype
         self.device = device
+
+        self.width = width
+        self.depth = depth
+        self.W_bias = W_bias.to(device, dtype)
+        self.bias_scale = bias_scale
         self.mode = mode
-        if mode == "random":
+        self.n_hist = n_hist
+        if mode == "rand":
             self.linops = [
-                linop.Random(state_size=state_size, dtype=dtype, device=device)
+                linop.Random(size=width, dtype=dtype, device=device)
                 for _ in range(n_linops)
             ]
-        elif mode == "structured_random":
+        elif mode == "struct_rand":
             assert len(mags) == n_layers or n_layers - len(mags) == 0.5, (
                 "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
             )
             self.linops = [
                 linop.StructuredRandom(
-                    shape=(state_size,),
+                    shape=(width,),
                     n_layers=n_layers,
                     mags=mags,
                     osr=osr,
@@ -55,10 +54,10 @@ class Network(torch.nn.Module):
                 )
                 for _ in range(n_linops)
             ]
-        elif mode == "random_conv":
+        elif mode == "rand_conv":
             self.linops = [
                 linop.RandomConvolution(
-                    shape=(state_size,),
+                    shape=(width,),
                     kernel_size=kernel_size,
                     dtype=dtype,
                     device=device,
@@ -72,7 +71,7 @@ class Network(torch.nn.Module):
         self.residual_interval = residual_interval
         self.hist_states = [None] * (self.depth + 1)
 
-        self.f = torch.erf
+        self.activation = torch.erf
 
     def iter_single(self, input, bias, weight_scale=1.0, bias_scale=1.0):
         """single forward for a single state scale on a single input.
@@ -80,17 +79,17 @@ class Network(torch.nn.Module):
         returns:
         res: shape (state_size)
         """
-        aft_act = self.f(
+        output = self.activation(
             weight_scale * self.linops[self.counter].apply(input)
             + bias_scale * bias.to(self.device)
         )
         self.counter += 1
         if self.counter == self.n_linops:
             self.counter = 0
-        if self.mode == "random":
-            return aft_act / np.sqrt(self.state_size)
-        elif self.mode == "structured_random":
-            return aft_act
+        if self.mode == "rand":
+            return output / np.sqrt(self.width)
+        elif self.mode in ["struct_rand", "rand_conv"]:
+            return output
         else:
             raise ValueError("Invalid mode")
 
@@ -109,31 +108,31 @@ class Network(torch.nn.Module):
 
         biases = bias.repeat(n_scales, 1).to(self.device)
 
-        pre_act = (
+        logits = (
             torch.einsum(
                 "n, ni -> ni", weight_scales, self.linops[self.counter].apply(inputs)
             )
             + bias_scale * biases
         )
 
-        if torch.is_complex(pre_act):
-            aft_act = self.f(pre_act.real)
+        if torch.is_complex(logits):
+            output = self.activation(logits.real)
         else:
-            aft_act = self.f(pre_act)
+            output = self.activation(logits)
+
         self.counter += 1
         if self.counter == self.n_linops:
             self.counter = 0
-        if self.mode == "random":
-            return aft_act / np.sqrt(self.state_size)
-        elif self.mode == "structured_random":
-            return aft_act
-        elif self.mode == "random_conv":
-            return aft_act
+
+        if self.mode == "rand":
+            return output / np.sqrt(self.width)
+        elif self.mode in ["struct_rand", "rand_conv"]:
+            return output
         else:
             raise ValueError("Invalid mode")
 
     def forward_single(
-        self, sequence, state=None, n_history=10, weight_scale=1.0, bias_scale=None
+        self, input, biases, weight_scale=1.0, bias_scale=None
     ):
         """Forward pass on a single scale
 
@@ -147,44 +146,38 @@ class Network(torch.nn.Module):
         returns:
             res: shape (n_history, state_size)
         """
-        assert sequence.shape[0] == self.depth, "Depth mismatch"
-        assert sequence.shape[1] == self.input_size, "Input size mismatch"
-
-        n_layers = sequence.shape[0]
-        sequence = sequence.to(self.device)
+        assert biases.shape[0] == self.depth, "bias length and depth mismatch"
+        assert biases.shape[1] == self.width, "bias size and width mismatch"
+        assert input.shape[0] == self.width, "input size and width mismatch"
 
         biases = torch.einsum(
             "ij,nj -> ni",
-            self.W_in,
-            sequence,
+            self.W_bias,
+            biases,
         )
 
-        if state is not None:
-            assert state.shape[0] == self.state_size, "State size mismatch"
-            current = state
-        else:
-            current = torch.zeros(self.state_size).to(self.device)
         if bias_scale is None:
-            bias_scale = self.input_scale
+            bias_scale = self.bias_scale
 
-        res = torch.zeros(n_history, self.state_size)
-        for i in range(n_layers):
-            current = self.iter_single(
-                current, biases[i], weight_scale=weight_scale, bias_scale=bias_scale
+        outputs = torch.zeros(self.n_hist, self.width)
+        curr = input.to(self.device)
+
+        for i in range(self.depth):
+            curr = self.iter_single(
+                curr, biases[i], weight_scale=weight_scale, bias_scale=bias_scale
             )
-            if i >= n_layers - n_history:
-                res[i - n_layers + n_history, :] = current
-        return res
+            if i >= self.depth - self.n_hist:
+                outputs[i - self.depth + self.n_hist, :] = curr
+        return outputs
 
     def forward_parallel(
         self,
-        sequence,
-        state,
+        input,
+        biases,
         weight_scales=[1.0],
         bias_scale=None,
-        n_history=20,
         normalize=False,
-        start=2,
+        start=100,
     ):
         """forward pass on multiple state scales for a single input.
 
@@ -192,37 +185,29 @@ class Network(torch.nn.Module):
         n_history: number of the last states to keep, to be used for averaging
         returns:
         res: shape (n_scales, n_history, state_size)"""
-        assert sequence.shape[0] == self.depth, "Depth mismatch"
-        assert sequence.shape[1] == self.input_size, "Input size mismatch"
+        assert biases.shape[0] == self.depth, "Depth mismatch"
+        assert biases.shape[1] == self.width, "Input size mismatch"
+        assert input.shape[0] == self.width, "input size and width mismatch"
 
         n_scales = len(weight_scales)
 
         biases = torch.einsum(
             "ij,nj -> ni",
-            self.W_in,
-            sequence,
+            self.W_bias,
+            biases,
         )
 
-        if state is not None:
-            assert state.shape[0] == self.state_size, (
-                "State size mismatch, expected {}, got {}".format(
-                    self.state_size, state.shape[0]
-                )
-            )
-            current = state.repeat(n_scales, 1).to(self.dtype).to(self.device)
-        else:
-            current = (
-                torch.zeros(n_scales, self.state_size).to(self.dtype).to(self.device)
-            )
+        curr = input.repeat(n_scales, 1).to(self.device, self.dtype)
+
         if bias_scale is None:
-            bias_scale = self.input_scale
-        if n_history is None:
-            n_history = self.depth
-        self.hist_states[0] = current # length depth + 1
-        res = torch.zeros(n_scales, n_history, self.state_size).to(self.device)
+            bias_scale = self.bias_scale
+
+        self.hist_states[0] = curr # length depth + 1
+        outputs = torch.zeros(n_scales, self.n_hist, self.width).to(self.device)
+
         for i in range(1, self.depth+1):
-            current = self.iter_parallel(
-                current,
+            curr = self.iter_parallel(
+                curr,
                 biases[i-1, :],
                 weight_scales=weight_scales,
                 bias_scale=bias_scale,
@@ -231,21 +216,22 @@ class Network(torch.nn.Module):
             if self.residual_length is not None:
                 if i > start and (i-start) % self.residual_interval == 0:
                     # print(f'adding residual connection from layer {i + 1 - self.residual_length} to layer {i + 1}')
-                    current += self.hist_states[i - self.residual_length]
+                    curr += self.hist_states[i - self.residual_length]
                 # add new states
-                self.hist_states[i] = current
+                self.hist_states[i] = curr
             if normalize:
-                current = torch.nn.functional.normalize(current, p=2, dim=1)
-            if i > (self.depth - n_history):
-                res[:, i - 1 - self.depth + n_history, :] = current
-        return res
+                # current = torch.nn.functional.normalize(current, p=2, dim=1)
+                curr = (curr - torch.mean(curr, dim=1, keepdim=True))/ (torch.std(curr, dim=1, keepdim=True) + 1e-5)
+            if i > (self.depth - self.n_hist):
+                outputs[:, i - 1 - self.depth + self.n_hist, :] = curr
+        return outputs
 
     def stability_test(
         self,
-        sequence,
-        weight_scales,
-        state1=None,
-        state2=None,
+        input1=None,
+        input2=None,
+        biases=None,
+        weight_scales=None,
         mode="independent",
         noise_level=0.01,
         normalize=False,
@@ -258,25 +244,26 @@ class Network(torch.nn.Module):
         Returns:
         dist: shape (n_scales, n_history)
         """
-        sequence = sequence.to(self.device).to(self.dtype)
+        biases = biases.to(self.device, self.dtype)
 
         if mode == "independent":
-            if state1 is None:
-                state1 = torch.randn(self.state_size).to(self.dtype).to(self.device)
-                state1 = state1 / torch.norm(state1)
-            if state2 is None:
-                state2 = torch.randn(self.state_size).to(self.dtype).to(self.device)
-                state2 = state2 / torch.norm(state2)
+            if input1 is None and input2 is None:
+                input1 = torch.randn(self.width).to(self.device, self.dtype)
+                input1 = input1 / torch.norm(input1)
+                input2 = torch.randn(self.width).to(self.device, self.dtype)
+                input2 = input2 / torch.norm(input2)
         elif mode == "sensitivity":
-            state1 = torch.randn(self.state_size).to(self.dtype).to(self.device)
-            epsilon = noise_level * torch.randn(self.state_size).to(self.dtype).to(self.device)
-            state2 = state1 + epsilon
+            input1 = torch.randn(self.width).to(self.device,self.dtype)
+            epsilon = noise_level * torch.randn(self.width).to(self.device, self.dtype)
+            input2 = input1 + epsilon
 
-            state1 = state1 / torch.norm(state1)
-            state2 = state2 / torch.norm(state2)
+            input1 = input1 / torch.norm(input1)
+            input2 = input2 / torch.norm(input2)
 
         self.counter = 0
-        states1 = self.forward_parallel(sequence, state1, weight_scales=weight_scales, normalize=normalize)
+        outputs1 = self.forward_parallel(input1, biases,  weight_scales=weight_scales, normalize=normalize)
+
         self.counter = 0
-        states2 = self.forward_parallel(sequence, state2, weight_scales=weight_scales, normalize=normalize)
-        return torch.sum((states1 - states2) ** 2, dim=2)
+        outputs2 = self.forward_parallel(input2, biases, weight_scales=weight_scales, normalize=normalize)
+
+        return torch.sum((outputs1 - outputs2) ** 2, dim=2)

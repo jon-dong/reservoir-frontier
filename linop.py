@@ -109,15 +109,12 @@ class MarchenkoPastur(Distribution):
 
 
 class Random(LinOp):
-    def __init__(self, state_size, W_res=None, dtype=th.float64, device="cpu"):
+    def __init__(self, size, dtype=th.float64, device="cpu"):
         self.dtype = dtype
         self.device = device
-        if W_res is None:
-            self.matrix = (
-                th.randn(state_size, state_size).to(self.dtype).to(self.device)
-            )
-        else:
-            self.matrix = W_res.to(self.dtype).to(self.device)
+        self.matrix = (
+            th.randn(size, size).to(self.dtype).to(self.device)
+        )
 
     def apply(self, x):
         """perform the linear operator on the input x.

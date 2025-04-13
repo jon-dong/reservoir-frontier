@@ -54,37 +54,39 @@ def get_freer_gpu(verbose=True):
 device = get_freer_gpu()
 
 seed = 1
-res_size = 100
-input_size = 100
-input_len = 10000
-resolution = 1000 # number of scales
-use = 'network'
-mode = "random"
-stability_mode = "independent"
+width = 100
+depth = 100
+mode = "rand"
+additional = '_100layer_'
+
 normalize = False
-noise_level = 1e-15 # for sensitivity analysis
-# General settings
-n_linops = 1
 n_channels = 1
-residual_length = 2
-residual_interval = 2
-additional = '_res2start2_'
-# Settings for structured random
+n_linops = 1
+residual_length = None
+residual_interval = None
+
+stability_mode = "independent"
+noise_level = 1e-15 # for sensitivity analysis
+resolution = 1000 # number of scales
+
 n_layers = 1.5
 mags = ["marchenko"]
 osr = 1000
 # Settings for random convolution
 kernel_size = 100
-if mode == 'random':
+if mode == 'rand':
     n_layers = None
     mags = None
     osr = None
 save = True
+
 # Bounds for n_res = 100
 # res_scale_bounds = [0, 2]
 # input_scale_bounds = [0, 2]
 res_scale_bounds = [0, 4]
 input_scale_bounds = [0, 4]
+# res_scale_bounds = [2.3, 2.5]
+# input_scale_bounds = [2.3, 2.5]
 # res_scale_bounds = [1.8, 2.2]
 # input_scale_bounds = [2.0, 2.4]
 # res_scale_bounds = [3, 4]
@@ -123,28 +125,30 @@ now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 save_name = f"{now}_{mode}{kernel_size if mode=='random_conv' else ''}{n_layers if mode=='structured_random' else ''}{additional}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
 
 metric_erf = stability_test(
-    res_size=res_size,
-    input_size=input_size,
-    input_len=input_len,
-    resolution=resolution,
-    constant_input=False,
-    res_scale_bounds=res_scale_bounds,
-    input_scale_bounds=input_scale_bounds,
+    width=width,
+    depth=depth,
+    mode=mode,
+
+    n_channels = n_channels,
     n_linops=n_linops,
+    constant_input=False,
+    normalize=normalize,
+    residual_length=residual_length,
+    residual_interval=residual_interval,
+
     n_layers=n_layers,
     mags=mags,
     osr=osr,
     kernel_size=kernel_size,
-    n_channels = n_channels,
-    residual_length=residual_length,
-    residual_interval=residual_interval,
+
     stability_mode=stability_mode,
     noise_level=noise_level,
+    resolution=resolution,
+    res_scale_bounds=res_scale_bounds,
+    input_scale_bounds=input_scale_bounds,
+
     device=device,
     seed=seed,
-    use=use,
-    mode=mode,
-    normalize=normalize,
 )
 
 plt.figure()
