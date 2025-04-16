@@ -54,37 +54,40 @@ def get_freer_gpu(verbose=True):
 device = get_freer_gpu()
 
 seed = 1
-width = 100
-depth = 100
-mode = "rand"
-additional = '_100layer_'
+width = 100 # state size
+depth = 1000 # input length for reservoir
+mode = "rand" # in ['rand', 'struct_rand', 'random_conv']
+additional = '_sensi_10layer_' # additional name for saving
 
-normalize = False
-n_channels = 1
-n_linops = 1
-residual_length = None
-residual_interval = None
+normalize = False # layer normalization
+n_channels = 1 # multiple networks and average errors
+n_linops = 1 # number of linops to iterate on
+residual_length = None # residual connection length
+residual_interval = None # residual connection interval
 
-stability_mode = "independent"
+stability_mode = "sensitivity" # in ['sensitivity', 'independent']
 noise_level = 1e-15 # for sensitivity analysis
 resolution = 1000 # number of scales
 
+# struct rand
 n_layers = 1.5
-mags = ["marchenko"]
-osr = 1000
-# Settings for random convolution
+mags = ["marchenko"] # in ['marchenko', 'unit']
+osr = 1000 # oversampling ratio
+# rand conv
 kernel_size = 100
+
 if mode == 'rand':
     n_layers = None
     mags = None
     osr = None
+
 save = True
 
 # Bounds for n_res = 100
 # res_scale_bounds = [0, 2]
 # input_scale_bounds = [0, 2]
-res_scale_bounds = [0, 4]
-input_scale_bounds = [0, 4]
+weight_scale_bounds = [0, 4]
+bias_scale_bounds = [0, 4]
 # res_scale_bounds = [2.3, 2.5]
 # input_scale_bounds = [2.3, 2.5]
 # res_scale_bounds = [1.8, 2.2]
@@ -122,7 +125,7 @@ input_scale_bounds = [0, 4]
 # input_scale_bounds = [1.1, 1.2]
 # get current date
 now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_name = f"{now}_{mode}{kernel_size if mode=='random_conv' else ''}{n_layers if mode=='structured_random' else ''}{additional}x{n_linops}_seed{seed}_res{res_scale_bounds}_input{input_scale_bounds}"
+save_name = f"{now}_{mode}{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}x{n_linops}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}"
 
 metric_erf = stability_test(
     width=width,
@@ -144,8 +147,8 @@ metric_erf = stability_test(
     stability_mode=stability_mode,
     noise_level=noise_level,
     resolution=resolution,
-    res_scale_bounds=res_scale_bounds,
-    input_scale_bounds=input_scale_bounds,
+    res_scale_bounds=weight_scale_bounds,
+    input_scale_bounds=bias_scale_bounds,
 
     device=device,
     seed=seed,
@@ -173,20 +176,20 @@ plt.grid(False)
 plt.clim(threshold, 1)
 plt.colorbar()
 
-input_scale_min = input_scale_bounds[0] + input_min * (
-    input_scale_bounds[1] - input_scale_bounds[0]
+input_scale_min = bias_scale_bounds[0] + input_min * (
+    bias_scale_bounds[1] - bias_scale_bounds[0]
 )
-input_scale_max = input_scale_bounds[0] + input_max * (
-    input_scale_bounds[1] - input_scale_bounds[0]
+input_scale_max = bias_scale_bounds[0] + input_max * (
+    bias_scale_bounds[1] - bias_scale_bounds[0]
 )
-res_scale_min = res_scale_bounds[0] + res_min * (
-    res_scale_bounds[1] - res_scale_bounds[0]
+res_scale_min = weight_scale_bounds[0] + res_min * (
+    weight_scale_bounds[1] - weight_scale_bounds[0]
 )
-res_scale_max = res_scale_bounds[0] + res_max * (
-    res_scale_bounds[1] - res_scale_bounds[0]
+res_scale_max = weight_scale_bounds[0] + res_max * (
+    weight_scale_bounds[1] - weight_scale_bounds[0]
 )
-ylab = np.linspace(input_scale_min, input_scale_max, num=int(input_scale_bounds[1] + 1))
-xlab = np.linspace(res_scale_min, res_scale_max, num=int(res_scale_bounds[1] + 1))
+ylab = np.linspace(input_scale_min, input_scale_max, num=int(bias_scale_bounds[1] + 1))
+xlab = np.linspace(res_scale_min, res_scale_max, num=int(weight_scale_bounds[1] + 1))
 indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
 indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
 
@@ -194,8 +197,8 @@ ax.set_xticks(indXx)
 ax.set_xticklabels(xlab)
 ax.set_yticks(indXy)
 ax.set_yticklabels(ylab)
-ax.set_xlabel("Reservoir scale")
-ax.set_ylabel("Input scale")
+ax.set_xlabel("Weight scale")
+ax.set_ylabel("Bias scale")
 ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
 if save is True:
