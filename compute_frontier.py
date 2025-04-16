@@ -84,48 +84,48 @@ if mode == 'rand':
 save = True
 
 # Bounds for n_res = 100
-# res_scale_bounds = [0, 2]
-# input_scale_bounds = [0, 2]
+# weight_scale_bounds = [0, 2]
+# bias_scale_bounds = [0, 2]
 weight_scale_bounds = [0, 4]
 bias_scale_bounds = [0, 4]
-# res_scale_bounds = [2.3, 2.5]
-# input_scale_bounds = [2.3, 2.5]
-# res_scale_bounds = [1.8, 2.2]
-# input_scale_bounds = [2.0, 2.4]
-# res_scale_bounds = [3, 4]
-# input_scale_bounds = [3, 4]
-# res_scale_bounds = [3.75, 4.0]
-# input_scale_bounds = [3.25, 3.5]
-# res_scale_bounds = [3.75, 3.8]
-# input_scale_bounds = [3.25, 3.3]
-# res_scale_bounds = [1.51, 1.53]
-# input_scale_bounds = [0.96, 0.98]
-# res_scale_bounds = [1.4, 1.6]
-# input_scale_bounds = [0.6, 0.8]
-# res_scale_bounds = [1.5, 1.55]
-# input_scale_bounds = [0.65, 0.7]
-# res_scale_bounds = [1.62, 1.92]
-# input_scale_bounds = [1, 1.3]
-# res_scale_bounds = [1.73, 1.83]
-# input_scale_bounds = [1.1, 1.2]
-# res_scale_bounds = [1.777, 1.802]
-# input_scale_bounds = [1.137, 1.162]
-# res_scale_bounds = [1.785, 1.795]
-# input_scale_bounds = [1.145, 1.155]
+# weight_scale_bounds = [2.3, 2.5]
+# bias_scale_bounds = [2.3, 2.5]
+# weight_scale_bounds = [1.8, 2.2]
+# bias_scale_bounds = [2.0, 2.4]
+# weight_scale_bounds = [3, 4]
+# bias_scale_bounds = [3, 4]
+# weight_scale_bounds = [3.75, 4.0]
+# bias_scale_bounds = [3.25, 3.5]
+# weight_scale_bounds = [3.75, 3.8]
+# bias_scale_bounds = [3.25, 3.3]
+# weight_scale_bounds = [1.51, 1.53]
+# bias_scale_bounds = [0.96, 0.98]
+# weight_scale_bounds = [1.4, 1.6]
+# bias_scale_bounds = [0.6, 0.8]
+# weight_scale_bounds = [1.5, 1.55]
+# bias_scale_bounds = [0.65, 0.7]
+# weight_scale_bounds = [1.62, 1.92]
+# bias_scale_bounds = [1, 1.3]
+# weight_scale_bounds = [1.73, 1.83]
+# bias_scale_bounds = [1.1, 1.2]
+# weight_scale_bounds = [1.777, 1.802]
+# bias_scale_bounds = [1.137, 1.162]
+# weight_scale_bounds = [1.785, 1.795]
+# bias_scale_bounds = [1.145, 1.155]
 
-# res_scale_bounds = [1.70, 1.75]
-# input_scale_bounds = [0.25, 0.30]
+# weight_scale_bounds = [1.70, 1.75]
+# bias_scale_bounds = [0.25, 0.30]
 
 # Bounds for n_res = 30
-# res_scale_bounds = [0, 2]
-# input_scale_bounds = [0, 2]
-# res_scale_bounds = [1.75, 2.05]
-# input_scale_bounds = [1, 1.3]
-# res_scale_bounds = [1.87, 1.97]
-# input_scale_bounds = [1.1, 1.2]
+# weight_scale_bounds = [0, 2]
+# bias_scale_bounds = [0, 2]
+# weight_scale_bounds = [1.75, 2.05]
+# bias_scale_bounds = [1, 1.3]
+# weight_scale_bounds = [1.87, 1.97]
+# bias_scale_bounds = [1.1, 1.2]
 # get current date
-now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_name = f"{now}_{mode}{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}x{n_linops}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}"
+timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+save_folder = f"{timestamp}_{mode}{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}x{n_linops}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
 metric_erf = stability_test(
     width=width,
@@ -147,8 +147,8 @@ metric_erf = stability_test(
     stability_mode=stability_mode,
     noise_level=noise_level,
     resolution=resolution,
-    res_scale_bounds=weight_scale_bounds,
-    input_scale_bounds=bias_scale_bounds,
+    weight_scale_bounds=weight_scale_bounds,
+    bias_scale_bounds=bias_scale_bounds,
 
     device=device,
     seed=seed,
@@ -159,14 +159,14 @@ seaborn.set_style("whitegrid")
 img = metric_erf.T
 threshold = 1e-5
 img[img < threshold] = threshold
-input_min = 0
-input_max = 1
-res_min = 0
-res_max = 1
+bias_min = 0
+bias_max = 1
+weight_min = 0
+weight_max = 1
 plt.imshow(
     img[
-        int(input_min * resolution) : int(input_max * resolution),
-        int(res_min * resolution) : int(res_max * resolution),
+        int(bias_min * resolution) : int(bias_max * resolution),
+        int(weight_min * resolution) : int(weight_max * resolution),
     ],
     norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
 )  #
@@ -176,20 +176,20 @@ plt.grid(False)
 plt.clim(threshold, 1)
 plt.colorbar()
 
-input_scale_min = bias_scale_bounds[0] + input_min * (
+bias_scale_min = bias_scale_bounds[0] + bias_min * (
     bias_scale_bounds[1] - bias_scale_bounds[0]
 )
-input_scale_max = bias_scale_bounds[0] + input_max * (
+bias_scale_max = bias_scale_bounds[0] + bias_max * (
     bias_scale_bounds[1] - bias_scale_bounds[0]
 )
-res_scale_min = weight_scale_bounds[0] + res_min * (
+weight_scale_min = weight_scale_bounds[0] + weight_min * (
     weight_scale_bounds[1] - weight_scale_bounds[0]
 )
-res_scale_max = weight_scale_bounds[0] + res_max * (
+weight_scale_max = weight_scale_bounds[0] + weight_max * (
     weight_scale_bounds[1] - weight_scale_bounds[0]
 )
-ylab = np.linspace(input_scale_min, input_scale_max, num=int(bias_scale_bounds[1] + 1))
-xlab = np.linspace(res_scale_min, res_scale_max, num=int(weight_scale_bounds[1] + 1))
+ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(bias_scale_bounds[1] + 1))
+xlab = np.linspace(weight_scale_min, weight_scale_max, num=int(weight_scale_bounds[1] + 1))
 indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
 indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
 
@@ -202,11 +202,11 @@ ax.set_ylabel("Bias scale")
 ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
 if save is True:
-    if not os.path.exists("data/" + save_name):
-        os.makedirs("data/" + save_name)
-    np.save("data/" + save_name + "/" + "metric_erf.npy", metric_erf)
-    np.save("data/" + save_name + "/" + "xlab.npy", xlab)
-    np.save("data/" + save_name + "/" + "ylab.npy", ylab)
-    plt.savefig("fig/" + save_name + ".png")
+    if not os.path.exists("data/" + save_folder):
+        os.makedirs("data/" + save_folder)
+    np.save("data/" + save_folder + "metric_erf.npy", metric_erf)
+    np.save("data/" + save_folder + "xlab.npy", xlab)
+    np.save("data/" + save_folder + "ylab.npy", ylab)
+    plt.savefig("data/" + save_folder + "frontier.png")
 
 plt.show()

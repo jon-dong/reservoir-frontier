@@ -22,8 +22,8 @@ def stability_test(
     mode,
     resolution=None,
     constant_input=False,
-    res_scale_bounds=[0, 3],
-    input_scale_bounds=[0, 2],
+    weight_scale_bounds=[0, 3],
+    bias_scale_bounds=[0, 2],
     n_linops=1,
     n_layers=None,
     n_hist=20,
@@ -63,16 +63,16 @@ def stability_test(
         biases = biases.repeat(depth, 1)
 
     weight_scales = np.linspace(
-        res_scale_bounds[0], res_scale_bounds[1], num=resolution
+        weight_scale_bounds[0], weight_scale_bounds[1], num=resolution
     )
     bias_scales = np.linspace(
-        input_scale_bounds[0], input_scale_bounds[1], num=resolution
+        bias_scale_bounds[0], bias_scale_bounds[1], num=resolution
     )
     final_metric = torch.zeros(resolution, resolution)
 
     # Initialize
     W_bias = torch.randn(width, width).to(device)
-    #! somehow defining the two inputs before stability_test() will yield different transient behavior on the the frontier from defining them inside
+    #! somehow defining the two inputs before model.stability_test() will yield different transient behavior on the the frontier from defining them inside
     #! identical code, but different behavior, very confusing
     input1 = torch.randn(width).to(device)
     input1 = input1 / torch.norm(input1)
