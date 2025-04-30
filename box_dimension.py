@@ -1,7 +1,6 @@
 # %%
 import numpy as np
 import matplotlib.pylab as plt
-import afbf
 import os
 import porespy as ps
 
@@ -146,17 +145,15 @@ hist_video= []
 images = []
 for file in os.listdir(folder):
     img = np.load(folder+file,allow_pickle=True)
+    hist_video.append(img.copy())
+
     img[img<1e-3]=-1
     img[img>=1e-3]= 1
     images.append(img)
-    hist_video.append(img)
 
 fig, axs = plt.subplots(1,len(hist_video))
 for idx, img in enumerate(hist_video):
     axs[idx].imshow(img)
-
-
-
 
 
 # %%
@@ -177,47 +174,80 @@ for idx in range(len(fractals)):
 # %%
 
 
-#for threshold in np.logspace(-3, -1, 5):
+thresh_list = np.logspace(-5, 0, 32)
 for idx in range(3):
-    #field_of_zeros = hist_video[idx] >= 0
+    dim_list = []
+    dim_list_edge = []
+    dim_list_spore = []
+    dim_list_edge_spore = []
+    for threshold in thresh_list:
 
-    field_of_zeros = fractals[idx]
+        #field_of_zeros = hist_video[idx] >= threshold
 
-    #threshold = 1e-1
-    #field_of_zeros = (np.abs(fields[idx]) >= level) & (np.abs(fields[idx]) <= (level +threshold))
-    
-    signed_field = np.ones(field_of_zeros.shape)
-    signed_field[field_of_zeros]*= -1
-    edges= utils.extract_edges(signed_field)
+        #field_of_zeros = fractals[idx]
 
-
-    min_idx = 0
-    max_idx = -1
-    H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
-    H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
-
-    print(f"Slope (H): {H}, Slope edges (H): {H_edges}")#, Intercept (V): {V}")
-    dim_spore = utils.estimate_fractal_dimension([signed_field])
-    ret_spore_zero = ps.metrics.boxcount(field_of_zeros)
-    ret_spore_edge = ps.metrics.boxcount(edges)
-    print(f'dim utils : {dim_spore} \t dim  : {np.median(ret_spore_zero.slope)} \t dim edge : {np.median(ret_spore_edge.slope)}')
+        #threshold = 1e-1
+        field_of_zeros = (np.abs(fields[idx]) >= level) & (np.abs(fields[idx]) <= (level +threshold))
+        
+        signed_field = np.ones(field_of_zeros.shape)
+        signed_field[field_of_zeros]*= -1
+        edges= utils.extract_edges(signed_field)
 
 
-    fig, axs = plt.subplots(2,2, sharey='row')
-    axs[0,0].imshow(field_of_zeros)
-    axs[0,1].imshow(edges)
-    axs[0,0].axis('off')
-    axs[0,1].axis('off')
+        min_idx = 0
+        max_idx = -1
+        H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
+        H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
 
-    axs[1,0].plot(log_scales[min_idx:max_idx], log_count[min_idx:max_idx])
-    axs[1,0].plot(np.log(ret_spore_zero.size), np.log(ret_spore_zero.count))
+        print(f"Slope (H): {H}, Slope edges (H): {H_edges}")#, Intercept (V): {V}")
+        dim_spore = utils.estimate_fractal_dimension([signed_field])
+        ret_spore_zero = ps.metrics.boxcount(field_of_zeros)
+        ret_spore_edge = ps.metrics.boxcount(edges)
+        print(f'dim utils : {dim_spore} \t dim  : {np.median(ret_spore_zero.slope)} \t dim edge : {np.median(ret_spore_edge.slope)}')
 
-    axs[1,0].set_title(f'dim {H:.3f}, edges {H_edges:.3f}')
+        dim_list.append(H)
+        dim_list_edge.append(H_edges)
+        dim_list_spore.append(np.median(ret_spore_zero.slope))
+        dim_list_edge_spore.append(np.median(ret_spore_edge.slope))
+        fig, axs = plt.subplots(2,2, sharey='row')
+        axs[0,0].imshow(field_of_zeros)
+        axs[0,1].imshow(edges)
+        axs[0,0].axis('off')
+        axs[0,1].axis('off')
 
-    axs[1,1].plot(log_scales_edges[min_idx:max_idx], log_count_edges[min_idx:max_idx])
-    axs[1,1].plot(np.log(ret_spore_edge.size), np.log(ret_spore_edge.count))
+        axs[1,0].plot(log_scales[min_idx:max_idx], log_count[min_idx:max_idx])
+        axs[1,0].plot(np.log(ret_spore_zero.size), np.log(ret_spore_zero.count))
 
-    axs[1,1].set_title(f'spore {np.median(ret_spore_zero.slope):.3f} edge {np.median(ret_spore_edge.slope):.3f}')
+        axs[1,0].set_title(f'dim {H:.3f}, edges {H_edges:.3f}')
+
+        axs[1,1].plot(log_scales_edges[min_idx:max_idx], log_count_edges[min_idx:max_idx])
+        axs[1,1].plot(np.log(ret_spore_edge.size), np.log(ret_spore_edge.count))
+
+        axs[1,1].set_title(f'spore {np.median(ret_spore_zero.slope):.3f} edge {np.median(ret_spore_edge.slope):.3f}')
+
+    fig, axs = plt.subplots(2,2, figsize=[7,9], sharex='all', sharey='all')
+    axs[0,0].scatter(thresh_list, dim_list)
+    axs[0,0].set_title(r'dim $L_{\leq \varepsilon}$ by lin reg')
+    axs[0,0].grid(True)
+    axs[0,0].set_xscale('log')
+
+    axs[0,1].scatter(thresh_list, dim_list_edge)
+    axs[0,1].set_title(r'dim $\partial L_{\leq \varepsilon}$ by lin reg')
+    axs[0,1].grid(True)
+    axs[0,1].set_xscale('log')
+
+
+    axs[1,0].scatter(thresh_list, dim_list_spore)
+    axs[1,0].set_title(r'dim $L_{\leq \varepsilon}$ by spore')
+    axs[1,0].grid(True)
+    axs[1,0].set_xscale('log')
+
+    axs[1,1].scatter(thresh_list, dim_list_edge_spore)
+    axs[1,1].set_title(r'dim $\partial L_{\leq \varepsilon}$ by spore')
+    axs[1,1].grid(True)
+    axs[1,1].set_xscale('log')
+
+    fig.savefig(f'hfbf-est-idx{idx}.pdf')
 
 
 
@@ -225,6 +255,7 @@ for idx in range(3):
 
 # %%
 # %%
+import afbf
 from afbf import tbfield
 h_list = [0.25,0.5,0.75]
 h_vals = [1.0 - h for h in h_list]
@@ -243,3 +274,4 @@ for h in h_list:
     field = z.values.reshape(z.M) ## M contains shape of image
     field -= np.mean(field)
     fields.append(field)
+# %%
