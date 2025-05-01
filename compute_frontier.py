@@ -30,7 +30,7 @@ def get_freer_gpu(verbose=True):
         idx, mem = np.argmax(memory_available), np.max(memory_available)
         device = torch.device(f"cuda:{idx}")
 
-    except:
+    except Exception:
         if torch.cuda.device_count() == 0:
             warn("Couldn't find free GPU")
             return torch.device("cuda")
@@ -52,20 +52,21 @@ def get_freer_gpu(verbose=True):
     return device
 
 device = get_freer_gpu()
+data_folder = "data/runs/"
 
-seed = 1
+seed = 3
 width = 100 # state size
-depth = 1000 # input length for reservoir
+depth = 10000 # input length for reservoir
 mode = "rand" # in ['rand', 'struct_rand', 'random_conv']
-additional = '_sensi_10layer_' # additional name for saving
+additional = '' # additional name for saving
 
 normalize = False # layer normalization
 n_channels = 1 # multiple networks and average errors
-n_linops = 1 # number of linops to iterate on
+n_linops = depth # number of linops to iterate on
 residual_length = None # residual connection length
 residual_interval = None # residual connection interval
 
-stability_mode = "sensitivity" # in ['sensitivity', 'independent']
+stability_mode = "independent" # in ['sensitivity', 'independent']
 noise_level = 1e-15 # for sensitivity analysis
 resolution = 1000 # number of scales
 
@@ -84,10 +85,10 @@ if mode == 'rand':
 save = True
 
 # Bounds for n_res = 100
-# weight_scale_bounds = [0, 2]
-# bias_scale_bounds = [0, 2]
-weight_scale_bounds = [0, 4]
-bias_scale_bounds = [0, 4]
+# weight_scale_bounds = [0, 4]
+# bias_scale_bounds = [0, 4]
+weight_scale_bounds = [1.8, 2.2]
+bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.3, 2.5]
 # bias_scale_bounds = [2.3, 2.5]
 # weight_scale_bounds = [1.8, 2.2]
@@ -125,7 +126,7 @@ bias_scale_bounds = [0, 4]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}x{n_linops}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_{depth}layer_{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
 metric_erf = stability_test(
     width=width,
@@ -202,11 +203,11 @@ ax.set_ylabel("Bias scale")
 ax.set_title("Asymptotic stability metric\nfor $f=$erf")
 
 if save is True:
-    if not os.path.exists("data/" + save_folder):
-        os.makedirs("data/" + save_folder)
-    np.save("data/" + save_folder + "metric_erf.npy", metric_erf)
-    np.save("data/" + save_folder + "xlab.npy", xlab)
-    np.save("data/" + save_folder + "ylab.npy", ylab)
-    plt.savefig("data/" + save_folder + "frontier.png")
+    if not os.path.exists(data_folder + save_folder):
+        os.makedirs(data_folder + save_folder)
+    np.save(data_folder + save_folder + "metric_erf.npy", metric_erf)
+    np.save(data_folder + save_folder + "xlab.npy", xlab)
+    np.save(data_folder + save_folder + "ylab.npy", ylab)
+    plt.savefig(data_folder + save_folder + "frontier.png")
 
 plt.show()
