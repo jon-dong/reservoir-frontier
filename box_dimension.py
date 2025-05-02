@@ -171,6 +171,36 @@ fig, axs = plt.subplots(1,3)
 for idx in range(len(fractals)):
     axs[idx].imshow(fractals[idx])
 
+
+# %%
+
+## Generate isotropic H-fractional brownian fields
+# The level set of any point has Haussdorf dimension 2 - H   
+import afbf
+from afbf import tbfield
+h_list = [0.25,0.5,0.75]
+h_vals = [2.0 - h for h in h_list]
+fields = []
+
+for h in h_list:
+    # Define the field.
+    Z = tbfield('fbf')
+
+    # Change the parameter of the Hurst function.
+    Z.hurst.ChangeParameters(np.array([[h]]))
+    Z.NormalizeModel()
+
+    # Simulate the field.
+    z = Z.Simulate(coord =afbf.coordinates(512))
+    field = z.values.reshape(z.M) ## M contains shape of image
+    field -= np.mean(field)
+    fields.append(field)
+
+# %%
+fig, axs = plt.subplots(1,3)
+for idx in range(len(fields)):
+    axs[idx].imshow(fields[idx])
+
 # %%
 
 
@@ -254,24 +284,30 @@ for idx in range(3):
 
 
 # %%
+idx = 0
+level = 0
+threshold = 1e-1
+field_of_zeros = (np.abs(fields[idx]) >= level) & (np.abs(fields[idx]) <= (level +threshold))
+
+signed_field = np.ones(field_of_zeros.shape)
+signed_field[field_of_zeros]*= -1
+edges= utils.extract_edges(signed_field)
+
+
+min_idx = 0
+max_idx = -1
+H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
+H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
+
+
+
 # %%
-import afbf
-from afbf import tbfield
-h_list = [0.25,0.5,0.75]
-h_vals = [1.0 - h for h in h_list]
-fields = []
+plt.figure()
+plt.plot(log_scales, log_count)
+ret_spore_zero = ps.metrics.boxcount(field_of_zeros)
 
-for h in h_list:
-    # Define the field.
-    Z = tbfield('fbf')
+plt.figure()
+plt.axhline(H)
+plt.scatter(ret_spore_zero.size[:-3], ret_spore_zero.slope[:-3])
 
-    # Change the parameter of the Hurst function.
-    Z.hurst.ChangeParameters(np.array([[h]]))
-    Z.NormalizeModel()
-
-    # Simulate the field.
-    z = Z.Simulate(coord =afbf.coordinates(512))
-    field = z.values.reshape(z.M) ## M contains shape of image
-    field -= np.mean(field)
-    fields.append(field)
 # %%
