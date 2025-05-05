@@ -54,10 +54,10 @@ def get_freer_gpu(verbose=True):
 device = get_freer_gpu()
 data_folder = "data/runs/"
 
-seed = 3
+seed = 0
 width = 100 # state size
 depth = 10000 # input length for reservoir
-mode = "rand" # in ['rand', 'struct_rand', 'random_conv']
+mode = "conv" # in ['rand', 'struct', 'conv']
 additional = '' # additional name for saving
 
 normalize = False # layer normalization
@@ -70,25 +70,33 @@ stability_mode = "independent" # in ['sensitivity', 'independent']
 noise_level = 1e-15 # for sensitivity analysis
 resolution = 1000 # number of scales
 
-# struct rand
+# struct
 n_layers = 1.5
 mags = ["marchenko"] # in ['marchenko', 'unit']
 osr = 1000 # oversampling ratio
-# rand conv
-kernel_size = 100
+
+# conv
+kernel_size = 80
 
 if mode == 'rand':
     n_layers = None
     mags = None
     osr = None
+    kernel_size = None
 
 save = True
 
 # Bounds for n_res = 100
-# weight_scale_bounds = [0, 4]
-# bias_scale_bounds = [0, 4]
-weight_scale_bounds = [1.8, 2.2]
-bias_scale_bounds = [1.8, 2.2]
+weight_scale_bounds = [0, 4]
+bias_scale_bounds = [0, 4]
+# weight_scale_bounds = [2.0, 2.4]
+# bias_scale_bounds = [1.8, 2.2]
+# weight_scale_bounds = [2.15, 2.25]
+# bias_scale_bounds = [2.0, 2.1]
+# weight_scale_bounds = [2.1875, 2.2125]
+# bias_scale_bounds = [2.0375, 2.0625]
+
+
 # weight_scale_bounds = [2.3, 2.5]
 # bias_scale_bounds = [2.3, 2.5]
 # weight_scale_bounds = [1.8, 2.2]
@@ -126,7 +134,7 @@ bias_scale_bounds = [1.8, 2.2]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}_{depth}layer_{kernel_size if mode=='rand_conv' else ''}{n_layers if mode=='struct_rand' else ''}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_{depth}layer{'_conv'+str(kernel_size) if mode=='conv' else ''}{'_struct'+str(n_layers) if mode=='struct' else ''}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
 metric_erf = stability_test(
     width=width,

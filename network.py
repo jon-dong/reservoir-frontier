@@ -39,7 +39,7 @@ class Network(torch.nn.Module):
                 linop.Random(size=width, dtype=dtype, device=device)
                 for _ in range(n_linops)
             ]
-        elif mode == "struct_rand":
+        elif mode == "struct":
             assert len(mags) == n_layers or n_layers - len(mags) == 0.5, (
                 "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
             )
@@ -54,7 +54,7 @@ class Network(torch.nn.Module):
                 )
                 for _ in range(n_linops)
             ]
-        elif mode == "rand_conv":
+        elif mode == "conv":
             self.linops = [
                 linop.RandomConvolution(
                     shape=(width,),
@@ -88,7 +88,7 @@ class Network(torch.nn.Module):
             self.counter = 0
         if self.mode == "rand":
             return output / np.sqrt(self.width)
-        elif self.mode in ["struct_rand", "rand_conv"]:
+        elif self.mode in ["struct", "conv"]:
             return output
         else:
             raise ValueError("Invalid mode")
@@ -126,7 +126,7 @@ class Network(torch.nn.Module):
 
         if self.mode == "rand":
             return output / np.sqrt(self.width)
-        elif self.mode in ["struct_rand", "rand_conv"]:
+        elif self.mode in ["struct", "conv"]:
             return output
         else:
             raise ValueError("Invalid mode")
