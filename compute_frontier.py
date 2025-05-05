@@ -9,9 +9,10 @@ from Reservoir import CustomReservoir
 from utils import stability_test
 
 use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:3" if use_cuda else "cpu")  # TOCHANGE 1/3
+device = torch.device("cuda:0" if use_cuda else "cpu")  # TOCHANGE 1/3
 
 filename = '241201usual_input_input_len10000'  # TOCHANGE 2/3
+filename = 'reservoir-frontier/250130stability_frontier_data'# /250130res[1.62, 1.92]_input[1, 1.3]_HR'  # TOCHANGE 2/3
 seed = 0
 res_size = 100
 input_size = 100

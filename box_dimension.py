@@ -155,7 +155,20 @@ fig, axs = plt.subplots(1,len(hist_video))
 for idx, img in enumerate(hist_video):
     axs[idx].imshow(img)
 
+idx = 1
+threshold_list = np.logspace(-6,-1,6)
+fig, axs = plt.subplots(2,len(threshold_list), figsize=[20,7])
+for id, threshold in enumerate(threshold_list):
+    img = hist_video[idx] > threshold
+    axs[0,id].imshow(img)
+    axs[0,id].axis('off')
+    signed_field = np.ones(img.shape)
+    signed_field[img]*= -1
+    edges= utils.extract_edges(signed_field)
+    axs[1,id].imshow(edges)
+    axs[1,id].axis('off')
 
+fig.savefig('threshold_influence.pdf')
 # %%
 level = 0.0
 idx = 2
