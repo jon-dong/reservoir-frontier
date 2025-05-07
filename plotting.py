@@ -108,7 +108,7 @@ def fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list
 
     axs[1].axhline(H_edges)
     axs[1].plot(ret_spore_zero.size, ret_spore_zero.slope)
-    plt.savefig(f'{folder.replace("/","")}_convergence_plot.pdf')
+  plt.savefig(f'{folder.replace("/","")}_convergence_plot.pdf')
   return
 
 
