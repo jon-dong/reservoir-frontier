@@ -103,6 +103,71 @@ def estimate_fractal_dimension(hist_video, title_plot=None):
 
   return mfd
 
+def linear_regression(X, Y):
+    ##    Computes least squares linear regression: Y = H*X + V
+
+    if X.ndim != 1 or Y.ndim != 1:
+        raise ValueError("Both X and Y must be 1D arrays.")
+    if X.size != Y.size:
+        raise ValueError("X and Y must be the same length.")
+    
+    # Construct design matrix
+    A = np.vstack([X, np.ones_like(X)]).T
+
+    # Solve least squares
+    H, V = np.linalg.lstsq(A, Y, rcond=None)[0]
+    
+    return H, V
+
+def count_boxes(field: np.ndarray, box_size: int):
+    #Count how many box_size×box_size (or smaller at the edges) boxes contain at least one True in a 2D boolean array.
+
+    if box_size < 1:
+        raise ValueError("box_size must be at least 1")
+    H, W = field.shape
+
+    # how many boxes fit (round up to cover the whole image)
+    n_rows = int(np.ceil(H / box_size))
+    n_cols = int(np.ceil(W / box_size))
+
+    N_boxes = 0
+    for i in range(n_rows):
+        # compute the y–slice for this row of boxes
+        y0 = i * box_size
+        y1 = min((i+1) * box_size, H)
+
+        for j in range(n_cols):
+            # compute the x–slice for this column of boxes
+            x0 = j * box_size
+            x1 = min((j+1) * box_size, W)
+
+            # if any point in this sub-array is True, count the box
+            if np.any(field[y0:y1, x0:x1]):
+                N_boxes += 1
+
+    return N_boxes, box_size  
+
+def count_boxes_through_scales(fractal, scales):
+    count_through_scales = []
+    int_scales = []
+    for scale in scales:
+        count, int_scale = count_boxes(fractal, scale)
+        count_through_scales.append(count)
+        int_scales.append(int_scale)
+    return np.array(count_through_scales), np.array(int_scales)
+
+def log_count_for_j_scales(fractal, scales= list(range(1,50))):
+    count_through_scales, integer_scales = count_boxes_through_scales(fractal, scales)
+    log_count = np.log(count_through_scales)
+    log_scales = np.log(integer_scales)
+    return log_count, log_scales
+
+def compute_dim(X, min_idx, max_idx):
+    log_count, log_scales = log_count_for_j_scales(X)
+    H, V = linear_regression(log_scales[min_idx:max_idx], log_count[min_idx:max_idx])
+
+    return -H, log_count, log_scales
+
 def fractal_dim_folder(folder, title_plot=None):
     '''
     Computes the fractal dimension for all the .npz files contained in a specific folder
@@ -115,5 +180,3 @@ def fractal_dim_folder(folder, title_plot=None):
         hist_video.append(img)
     estimate_fractal_dimension(hist_video, title_plot)
 
-if __name__=='__main__':
-   fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
