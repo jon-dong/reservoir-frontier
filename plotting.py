@@ -99,9 +99,10 @@ def fractal_dim_convergence_plots(fields, threshold_list):
     axs[1].plot(ret_spore_zero.size, ret_spore_zero.slope)#[:-3]
 
 def fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list):
+  _, axs = plt.subplots(1,2, figsize= (12,6))
   for (dim_edge, ret_spore_zero) in zip(final_dim_edge_list, final_spore_list):
       
-    _, axs = plt.subplots(1,2, figsize= (12,6))
+    
     H_edges, log_count_edges, log_scales_edges = dim_edge
 
     axs[0].plot(log_scales_edges, log_count_edges)
