@@ -6,6 +6,7 @@ import os
 from tqdm import tqdm
 from Reservoir import CustomReservoir
 from utils import *
+from matplotlib.gridspec import GridSpec
 
 
 
@@ -100,21 +101,108 @@ def fractal_dim_convergence_plots(fields, threshold_list):
 
 def fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list):
   _, axs = plt.subplots(1,2, figsize= (12,6))
-  for (dim_edge, ret_spore_zero) in zip(final_dim_edge_list, final_spore_list):
+  color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+  for (dim_edge, ret_spore_zero,c) in zip(final_dim_edge_list, final_spore_list,color):
       
     
     H_edges, log_count_edges, log_scales_edges = dim_edge
 
     axs[0].plot(log_scales_edges, log_count_edges)
 
-    axs[1].axhline(H_edges)
-    axs[1].plot(ret_spore_zero.size, ret_spore_zero.slope)
+    axs[1].axhline(H_edges, c=c)
+    axs[1].plot(ret_spore_zero.size, ret_spore_zero.slope, marker='d', c=c)
+    #axs[1].scatter(ret_spore_zero.size, ret_spore_zero.slope, marker='x', c=c)
   plt.savefig(f'{folder.replace("/","")}_convergence_plot.pdf')
   return
 
+def final_plot_threshold_all(folder, threshold_list_number = 32):
+  fields = [] 
+  level = 0
+  thresh_list = np.logspace(-4, 0, threshold_list_number)
+  fig = plt.figure(layout="constrained")
+  gs = GridSpec(4, 8, figure=fig)
+  axs = []
+  #fig, axs = plt.subplots(1,len(os.listdir(folder)), sharey='row', figsize=[20,7])
+  final_spore_list = [0 for i in range(len(os.listdir(folder)))]
+  final_dim_edge_list = [0 for i in range(len(os.listdir(folder)))]
+  max_thresholds = [0 for i in range(len(os.listdir(folder)))]
+  for idx, file in enumerate(sorted(os.listdir(folder))):
+      img = np.load(folder+file,allow_pickle=True)
+      fields.append(img.copy())
+      #dim_list = []
+      dim_list_edge = []
+      # dim_list_spore = []
+      #dim_list_edge_spore = []
+      max_dim = 0
+      
+      for threshold in thresh_list:
+
+          #field_of_zeros = hist_video[idx] >= threshold
+
+          #field_of_zeros = fractals[idx]
+
+          #threshold = 1e-1
+          field_of_zeros = (np.abs(fields[idx]) >= level) & (np.abs(fields[idx]) <= (level +threshold))
+          
+          signed_field = np.ones(field_of_zeros.shape)
+          signed_field[field_of_zeros]*= -1
+          edges= extract_edges(signed_field)
+
+
+          min_idx = 0
+          max_idx = -1
+          #H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
+          H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
+
+          #print(f"Slope (H): {H}, Slope edges (H): {H_edges}")#, Intercept (V): {V}")
+          # dim_spore = estimate_fractal_dimension([signed_field])
+          # ret_spore_zero = ps.metrics.boxcount(field_of_zeros)
+          ret_spore_edge = ps.metrics.boxcount(edges)
+          #print(f'dim utils : {dim_spore} \t dim  : {np.median(ret_spore_zero.slope)} \t dim edge : {np.median(ret_spore_edge.slope)}')
+          if H_edges > max_dim:
+             max_dim = H_edges
+             max_thresholds[idx] = threshold
+             final_dim_edge_list[idx] = [H_edges, log_count_edges, log_scales_edges]
+             final_spore_list[idx] = ret_spore_edge
+             
+          dim_list_edge.append(H_edges)
+          # dim_list_edge.append([H_edges, log_count_edges, log_scales_edges])
+          # # dim_list_spore.append(np.median(ret_spore_zero.slope))
+          # dim_list_edge_spore.append()
+      axs.append(fig.add_subplot(gs[:2, 2*idx:2*(idx+1)]))
+      axs[-1].scatter(thresh_list, dim_list_edge)
+      #axs[-1].set_title(file.replace(folder.replace("/",""),"").replace("_HR.npy",""), fontsize=10)
+      axs[-1].grid(True)
+      axs[-1].set_xscale('log')
+      xticks = np.logspace(-4, 0, 3)
+      xlabels = ['$10^{-4}$','$10^{-2}$','$1$']
+      axs[-1].set_xticks(xticks, labels=xlabels)
+  color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+  labels = ['original', 'zoom1', 'zoom2', 'zoom3']
+  axs.append(fig.add_subplot(gs[2:, :4]))
+  axs.append(fig.add_subplot(gs[2:, 4:]))
+  for (dim_edge, ret_spore_zero,c, label) in zip(final_dim_edge_list, final_spore_list,color,labels):
+      
+    
+    H_edges, log_count_edges, log_scales_edges = dim_edge
+
+    axs[-2].plot(log_scales_edges, log_count_edges)
+    axs[-1].axhline(H_edges, c=c)
+    axs[-1].plot(ret_spore_zero.size, ret_spore_zero.slope,label=label, marker='d', c=c)
+    axs[-1].set_xscale('log')
+    axs[-1].legend()
+    #axs[1].scatter(ret_spore_zero.size, ret_spore_zero.slope, marker='x', c=c)
+  
+  #Title can be adjusted
+  #fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
+
+  fig.savefig(f'{folder.replace("/","")}_summary.pdf')
+
+  return
 
 if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
   folder = '250130/'
-  final_dim_edge_list, final_spore_list, max_thresholds = final_plot_threshold(folder, threshold_list_number = 4)
-  fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
+  #final_dim_edge_list, final_spore_list, max_thresholds = 
+  final_plot_threshold_all(folder, threshold_list_number = 9)
+  #fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
