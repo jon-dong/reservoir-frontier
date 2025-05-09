@@ -136,6 +136,15 @@ class Rademacher(LinOp):
     def apply(self, x):
         return self.values * x
 
+class Uniform(LinOp):
+    def __init__(self, shape, dtype, device):
+        self.in_shape = shape
+        self.out_shape = shape
+        # generate a tensor with each element following the rademacher distribution
+        self.values = th.exp(1j*2*th.pi*(th.rand(shape)-0.5)).to(dtype).to(device)
+
+    def apply(self, x):
+        return self.values * x
 
 class Fft(LinOp):
     def __init__(self):
@@ -178,10 +187,14 @@ class StructuredRandom(LinOp):
         for mag in mags:
             if mag == "unit":
                 self.diagonals.append(
-                    Rademacher(shape, dtype, device)
+                    Uniform(shape, dtype=th.complex64, device=device)
                 )
+                # self.diagonals.append(
+                #     Rademacher(shape, dtype, device)
+                # )
             elif mag == "marchenko":
-                diagonal = Rademacher(shape, dtype, device)
+                diagonal = Uniform(shape, dtype=th.complex64, device=device)
+                # diagonal = Rademacher(shape, dtype, device)
                 diagonal.values = th.tensor(MarchenkoPastur(osr).sample(shape, normalized=True)).to(dtype).to(device) * diagonal.values
                 self.diagonals.append(diagonal)
         self.dtype = dtype
@@ -215,7 +228,9 @@ class RandomConvolution(LinOp):
         self.in_shape = shape
         self.out_shape = shape
         self.kernel_size = kernel_size
-        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding='same', padding_mode='circular').to(dtype).to(device)
+        #! do not include bias
+        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding='same', padding_mode='circular', bias=False).to(dtype).to(device)
+        # self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding=kernel_size // 2, padding_mode='circular').to(dtype).to(device)
         self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(device)/np.sqrt(kernel_size)
         self.dtype = dtype
         self.device = device

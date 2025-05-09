@@ -54,11 +54,11 @@ def get_freer_gpu(verbose=True):
 device = get_freer_gpu()
 data_folder = "data/runs/"
 
-seed = 0
-width = 100 # state size
-depth = 10000 # input length for reservoir
+seed = 1
+width = 1000 # state size
+depth = 1000 # input length for reservoir
 mode = "conv" # in ['rand', 'struct', 'conv']
-additional = '' # additional name for saving
+additional = 'circ' # additional name for saving
 
 normalize = False # layer normalization
 n_channels = 1 # multiple networks and average errors
@@ -72,11 +72,11 @@ resolution = 1000 # number of scales
 
 # struct
 n_layers = 1.5
-mags = ["marchenko"] # in ['marchenko', 'unit']
-osr = 1000 # oversampling ratio
+mags = ['marchenko'] # in ['marchenko', 'unit']
+osr = 1.01 # oversampling ratio
 
 # conv
-kernel_size = 80
+kernel_size = 3
 
 if mode == 'rand':
     n_layers = None
@@ -134,7 +134,7 @@ bias_scale_bounds = [0, 4]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}_{depth}layer{'_conv'+str(kernel_size) if mode=='conv' else ''}{'_struct'+str(n_layers) if mode=='struct' else ''}{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel'+str(kernel_size) if mode=='conv' else ''}{'_layer'+str(n_layers) if mode=='struct' else ''}_{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
 metric_erf = stability_test(
     width=width,

@@ -108,17 +108,17 @@ class Network(torch.nn.Module):
 
         biases = bias.repeat(n_scales, 1).to(self.device)
 
-        logits = (
+        pre_act = (
             torch.einsum(
                 "n, ni -> ni", weight_scales, self.linops[self.counter].apply(inputs)
             )
             + bias_scale * biases
         )
 
-        if torch.is_complex(logits):
-            output = self.activation(logits.real)
+        if torch.is_complex(pre_act):
+            output = self.activation(pre_act.real) * np.sqrt(2)
         else:
-            output = self.activation(logits)
+            output = self.activation(pre_act)
 
         self.counter += 1
         if self.counter == self.n_linops:
