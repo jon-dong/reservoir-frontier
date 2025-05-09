@@ -126,6 +126,7 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
   final_spore_list = [0 for i in range(len(os.listdir(folder)))]
   final_dim_edge_list = [0 for i in range(len(os.listdir(folder)))]
   max_thresholds = [0 for i in range(len(os.listdir(folder)))]
+  titles = ['original', 'zoom1', 'zoom2', 'zoom3']
   for idx, file in enumerate(sorted(os.listdir(folder))):
       img = np.load(folder+file,allow_pickle=True)
       fields.append(img.copy())
@@ -171,7 +172,7 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
           # dim_list_edge_spore.append()
       axs.append(fig.add_subplot(gs[:2, 2*idx:2*(idx+1)]))
       axs[-1].scatter(thresh_list, dim_list_edge)
-      #axs[-1].set_title(file.replace(folder.replace("/",""),"").replace("_HR.npy",""), fontsize=10)
+      axs[-1].set_title(titles[idx], fontsize=10)
       axs[-1].grid(True)
       axs[-1].set_xscale('log')
       xticks = np.logspace(-4, 0, 3)
@@ -204,5 +205,5 @@ if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
   folder = '250130/'
   #final_dim_edge_list, final_spore_list, max_thresholds = 
-  final_plot_threshold_all(folder, threshold_list_number = 9)
+  final_plot_threshold_all(folder, threshold_list_number = 31)
   #fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
