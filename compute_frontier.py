@@ -55,8 +55,8 @@ device = get_freer_gpu()
 data_folder = "data/runs/"
 
 seed = 1
-width = 1000 # state size
-depth = 1000 # input length for reservoir
+width = 100 # state size
+depth = 10000 # input length for reservoir
 mode = "conv" # in ['rand', 'struct', 'conv']
 additional = 'circ' # additional name for saving
 
@@ -76,7 +76,7 @@ mags = ['marchenko'] # in ['marchenko', 'unit']
 osr = 1.01 # oversampling ratio
 
 # conv
-kernel_size = 3
+kernel_size = 100
 
 if mode == 'rand':
     n_layers = None
@@ -87,14 +87,14 @@ if mode == 'rand':
 save = True
 
 # Bounds for n_res = 100
-weight_scale_bounds = [0, 4]
-bias_scale_bounds = [0, 4]
+# weight_scale_bounds = [0, 4]
+# bias_scale_bounds = [0, 4]
 # weight_scale_bounds = [2.0, 2.4]
 # bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
-# weight_scale_bounds = [2.1875, 2.2125]
-# bias_scale_bounds = [2.0375, 2.0625]
+weight_scale_bounds = [2.1875, 2.2125]
+bias_scale_bounds = [2.0375, 2.0625]
 
 
 # weight_scale_bounds = [2.3, 2.5]
