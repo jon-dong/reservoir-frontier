@@ -57,8 +57,8 @@ data_folder = "data/runs/"
 seed = 1
 width = 100 # state size
 depth = 10000 # input length for reservoir
-mode = "conv" # in ['rand', 'struct', 'conv']
-additional = 'circ' # additional name for saving
+mode = "struct" # in ['rand', 'struct', 'conv']
+additional = '' # additional name for saving
 
 normalize = False # layer normalization
 n_channels = 1 # multiple networks and average errors
@@ -71,8 +71,8 @@ noise_level = 1e-15 # for sensitivity analysis
 resolution = 1000 # number of scales
 
 # struct
-n_layers = 1.5
-mags = ['marchenko'] # in ['marchenko', 'unit']
+n_layers = 2
+mags = ['unit','unit'] # in ['marchenko', 'unit']
 osr = 1.01 # oversampling ratio
 
 # conv
