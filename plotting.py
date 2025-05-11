@@ -7,8 +7,47 @@ from tqdm import tqdm
 from Reservoir import CustomReservoir
 from utils import *
 from matplotlib.gridspec import GridSpec
+import matplotlib
+
+def zooming_plot(folder):
+  
+  plt.figure()
+  hist_video= []
+
+  for file in sorted(os.listdir(folder)):
+      img = np.load(folder+file,allow_pickle=True)
+      hist_video.append(img.copy())
+
+  threshold = 1e-5
+  resolution = img.shape[0]
+  
+
+  bias_scale_min = [1.62, 1.73, 1.777, 1.785]
+  bias_scale_max = [1.92, 1.83, 1.802, 1.795]
+  weight_scale_min = [1, 1.1, 1.137, 1.145]
+  weight_scale_max = [1.3, 1.2, 1.162, 1.155]
+
+  fig, axs = plt.subplots(2,2)
+  idx_bin = [[0,0],[0,1],[1,0],[1,1]]
+  for idx, img in enumerate(hist_video):
+      img[img<threshold]= threshold
+      ylab = np.linspace(bias_scale_min[idx], bias_scale_max[idx], num=2)
+      xlab = np.linspace(weight_scale_min[idx], weight_scale_max[idx], num=2)
+      indXx = np.linspace(0, resolution-1, num=xlab.shape[0]).astype(int)
+      indXy = np.linspace(0, resolution-1, num=ylab.shape[0]).astype(int)
+      axs[idx_bin[idx][0],idx_bin[idx][1]].imshow(img.T,norm=matplotlib.colors.LogNorm(vmin= 1e-4, vmax = 1))
+      axs[idx_bin[idx][0],idx_bin[idx][1]].grid(False)
+      axs[idx_bin[idx][0],idx_bin[idx][1]].set_xticks(indXx)
+      axs[idx_bin[idx][0],idx_bin[idx][1]].set_xticklabels(xlab)
+      axs[idx_bin[idx][0],idx_bin[idx][1]].set_yticks(indXy)
+      axs[idx_bin[idx][0],idx_bin[idx][1]].set_yticklabels(ylab)
 
 
+  fig.supxlabel('Weight scale')
+  fig.supylabel('Bias scale')
+  fig.suptitle('Asymptotic stability metric\nfor $f=$erf')
+  fig.tight_layout()
+  plt.savefig(f'{folder.replace("/","")}_zoomings.pdf')
 
 def final_plot_threshold(folder, threshold_list_number = 32):
   fields = [] 
@@ -195,7 +234,7 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
     #axs[1].scatter(ret_spore_zero.size, ret_spore_zero.slope, marker='x', c=c)
   
   #Title can be adjusted
-  #fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
+  fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
 
   fig.savefig(f'{folder.replace("/","")}_summary.pdf')
 
@@ -205,5 +244,6 @@ if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
   folder = '250130/'
   #final_dim_edge_list, final_spore_list, max_thresholds = 
-  final_plot_threshold_all(folder, threshold_list_number = 31)
+  #final_plot_threshold_all(folder, threshold_list_number = 31)
   #fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
+  zooming_plot(folder)
