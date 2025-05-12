@@ -54,10 +54,10 @@ def get_freer_gpu(verbose=True):
 device = get_freer_gpu()
 data_folder = "data/runs/"
 
-seed = 1
+seed = 0
 width = 100 # state size
-depth = 10000 # input length for reservoir
-mode = "struct" # in ['rand', 'struct', 'conv']
+depth = 1000 # input length for reservoir
+mode = "rand" # in ['rand', 'struct', 'conv']
 additional = '' # additional name for saving
 
 normalize = False # layer normalization
@@ -71,8 +71,8 @@ noise_level = 1e-15 # for sensitivity analysis
 resolution = 1000 # number of scales
 
 # struct
-n_layers = 2
-mags = ['unit','unit'] # in ['marchenko', 'unit']
+n_layers = 1.5
+mags = ['unit'] # in ['marchenko', 'unit']
 osr = 1.01 # oversampling ratio
 
 # conv
@@ -89,12 +89,12 @@ save = True
 # Bounds for n_res = 100
 # weight_scale_bounds = [0, 4]
 # bias_scale_bounds = [0, 4]
-# weight_scale_bounds = [2.0, 2.4]
-# bias_scale_bounds = [1.8, 2.2]
+weight_scale_bounds = [2.0, 2.4]
+bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
-weight_scale_bounds = [2.1875, 2.2125]
-bias_scale_bounds = [2.0375, 2.0625]
+# weight_scale_bounds = [2.1875, 2.2125]
+# bias_scale_bounds = [2.0375, 2.0625]
 
 
 # weight_scale_bounds = [2.3, 2.5]

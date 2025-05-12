@@ -5,18 +5,22 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn
 
-path = "./data/"
+path = "./data/final/"
 
-pattern = re.compile(r'res\[(.*?)\]_input\[(.*?)\]')
+pattern = re.compile(r'weight\[(.*?)\]_bias\[(.*?)\]')
 
 resolution = 1000
 
 for folder in os.listdir(path):
     # skip files
     if not os.path.isdir(path + folder):
+        print(f"Skipping {folder} as it is not a directory.")
         continue
 
     match = pattern.search(folder)
+    if not match:
+        print(f"Folder {folder} does not match the expected pattern.")
+        continue
     if match:
         res_values = match.group(1)
         input_values = match.group(2)
@@ -71,10 +75,9 @@ for folder in os.listdir(path):
     ax.set_xticklabels(xlab)
     ax.set_yticks(indXy)
     ax.set_yticklabels(ylab)
-    ax.set_xlabel("Weight scale")
-    ax.set_ylabel("Bias scale")
-    ax.set_title("Asymptotic stability metric\nfor $f=$erf")
+    ax.set_xlabel("Weight variance")
+    ax.set_ylabel("Bias variance")
 
-    plt.savefig(path + folder + "/frontier.png")
+    plt.savefig(path + folder + "/frontier.pdf")
 
     plt.close()
