@@ -32,7 +32,7 @@ def zooming_plot(folder):
       xlab = np.linspace(weight_scale_min[idx], weight_scale_max[idx], num=2)
       indXx = np.linspace(0, resolution-1, num=xlab.shape[0]).astype(int)
       indXy = np.linspace(0, resolution-1, num=ylab.shape[0]).astype(int)
-      axs[idx_bin[idx][0],idx_bin[idx][1]].imshow(img.T,norm=matplotlib.colors.LogNorm(vmin= 1e-4, vmax = 1))
+      axs[idx_bin[idx][0],idx_bin[idx][1]].imshow(img.T,norm=matplotlib.colors.LogNorm(vmin= 1e-4, vmax = 1e-1))
       axs[idx_bin[idx][0],idx_bin[idx][1]].grid(False)
       axs[idx_bin[idx][0],idx_bin[idx][1]].set_xticks(indXx)
       axs[idx_bin[idx][0],idx_bin[idx][1]].set_xticklabels(xlab)
@@ -206,7 +206,8 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
           # dim_list_edge.append([H_edges, log_count_edges, log_scales_edges])
           # # dim_list_spore.append(np.median(ret_spore_zero.slope))
           # dim_list_edge_spore.append()
-      axs.append(fig.add_subplot(gs[:2, 2*idx:2*(idx+1)]))
+      axs.append(fig.add_subplot(gs[:2, 2*idx:2*(idx+1)], sharey=None if idx==0 else axs[0]))
+
       axs[-1].scatter(thresh_list, dim_list_edge)
       axs[-1].set_title(titles[idx], fontsize=10)
       axs[-1].grid(True)
@@ -244,3 +245,4 @@ if __name__=='__main__':
   final_plot_threshold_all(folder, threshold_list_number = 32)
   # fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
   # zooming_plot(folder)
+

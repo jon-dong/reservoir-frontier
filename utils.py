@@ -3,6 +3,9 @@ from matplotlib import pyplot as plt
 import numpy as np
 import porespy as ps
 import torch
+import matplotlib.pyplot as plt
+import porespy as ps
+import os
 from tqdm import tqdm
 from network import Network
 
@@ -113,6 +116,7 @@ def stability_test(
             ) # return size (resolution, n_hist)
         rc_metric = rc_metric / n_channels # normalize to have same error scale
         final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
+
     return final_metric
 
 def extract_edges(X):
@@ -238,4 +242,5 @@ def fractal_dim_folder(folder, title_plot=None):
         img[img<1e-3]=-1
         img[img>=1e-3]= 1
         hist_video.append(img)
+    
     estimate_fractal_dimension(hist_video, title_plot)
