@@ -104,7 +104,7 @@ def final_plot_threshold(folder, threshold_list_number = 32):
       axs[idx].set_xscale('log')
 
   #Title can be adjusted
-  fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
+  #fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
 
   fig.savefig(f'{folder.replace("/","")}_threshold_plot.pdf')
 
