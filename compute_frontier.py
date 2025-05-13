@@ -55,9 +55,9 @@ device = get_freer_gpu()
 data_folder = "data/runs/"
 
 seed = 0
-width = 100 # state size
+width = 1000 # state size
 depth = 1000 # input length for reservoir
-mode = "rand" # in ['rand', 'struct', 'conv']
+mode = "conv" # in ['rand', 'struct', 'conv']
 additional = '' # additional name for saving
 
 normalize = False # layer normalization
@@ -76,7 +76,7 @@ mags = ['unit'] # in ['marchenko', 'unit']
 osr = 1.01 # oversampling ratio
 
 # conv
-kernel_size = 100
+kernel_size = width
 
 if mode == 'rand':
     n_layers = None
@@ -87,16 +87,16 @@ if mode == 'rand':
 save = True
 
 # Bounds for n_res = 100
-# weight_scale_bounds = [0, 4]
-# bias_scale_bounds = [0, 4]
+weight_scale_bounds = [0, 4]
+bias_scale_bounds = [0, 4]
 # weight_scale_bounds = [2.0, 2.4]
 # bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
 # weight_scale_bounds = [2.1875, 2.2125]
 # bias_scale_bounds = [2.0375, 2.0625]
-weight_scale_bounds = [2.1625, 2.1875]
-bias_scale_bounds = [2.0375, 2.0625]
+# weight_scale_bounds = [2.1625, 2.1875]
+# bias_scale_bounds = [2.0375, 2.0625]
 
 # weight_scale_bounds = [2.3, 2.5]
 # bias_scale_bounds = [2.3, 2.5]
@@ -207,9 +207,8 @@ ax.set_xticks(indXx)
 ax.set_xticklabels(xlab)
 ax.set_yticks(indXy)
 ax.set_yticklabels(ylab)
-ax.set_xlabel("Weight scale")
-ax.set_ylabel("Bias scale")
-ax.set_title("Asymptotic stability metric\nfor $f=$erf")
+ax.set_xlabel("Weight variance")
+ax.set_ylabel("Bias variance")
 
 if save is True:
     if not os.path.exists(data_folder + save_folder):
@@ -217,6 +216,6 @@ if save is True:
     np.save(data_folder + save_folder + "metric_erf.npy", metric_erf)
     np.save(data_folder + save_folder + "xlab.npy", xlab)
     np.save(data_folder + save_folder + "ylab.npy", ylab)
-    plt.savefig(data_folder + save_folder + "frontier.png")
+    plt.savefig(data_folder + save_folder + "frontier.pdf")
 
 plt.show()
