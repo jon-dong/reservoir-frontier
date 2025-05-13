@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import porespy as ps
 import os
-from utils import *
+from utils_fractals import *
 from matplotlib.gridspec import GridSpec
 import matplotlib
 
@@ -154,7 +154,7 @@ def fractal_lin_regs(fields, threshold_list):
     ax.scatter(log_scales_edges, log_count_edges, marker='x', c=c)
     x = np.linspace(log_scales_edges[0],log_scales_edges[-1],2)
     y = -H_edges*x + V_edges
-    ax.plot(x,y, c=c, label = H_edges)
+    ax.plot(x,y, c=c, label = f'{H_edges:.2f}')
     legend = plt.legend( title="Estimated fractal dimension")#,
                     #loc=4, fontsize='small', fancybox=True)
   fig.savefig(f'{folder.replace("/","")}_lin_reg_plot.pdf')
