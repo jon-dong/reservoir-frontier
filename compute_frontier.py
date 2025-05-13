@@ -33,7 +33,7 @@ def get_freer_gpu(verbose=True):
     except Exception:
         if torch.cuda.device_count() == 0:
             warn("Couldn't find free GPU")
-            return torch.device("cuda")
+            return torch.device("cpu")
 
         else:
             # Note this is slower and will return slightly different values to nvidia-smi

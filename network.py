@@ -20,7 +20,7 @@ class Network(torch.nn.Module):
         kernel_size=None,
         mags=["unit", "unit"],
         osr=1.5,
-        dtype=torch.float64,
+        dtype=torch.float32,
         device="cpu",
     ):
         super().__init__()
@@ -267,3 +267,46 @@ class Network(torch.nn.Module):
         outputs2 = self.forward_parallel(input2, biases, weight_scales=weight_scales, normalize=normalize)
 
         return torch.sum((outputs1 - outputs2) ** 2, dim=2)
+    
+    def stability_test1d(
+        self,
+        input1=None,
+        input2=None,
+        biases=None,
+        weight_scale=None,
+        mode="independent",
+        noise_level=0.01,
+        normalize=False,
+    ):
+        """
+        Stability test on the same input and different reservoir scales
+
+        Follows the distance between the reservoir states through time, whether they converge to the same trajectory
+
+        Returns:
+        dist: shape (n_scales, n_history)
+        """
+        biases = biases.to(self.device, self.dtype)
+
+        if mode == "independent":
+            if input1 is None and input2 is None:
+                input1 = torch.randn(self.width).to(self.device, self.dtype)
+                input1 = input1 / torch.norm(input1)
+                input2 = torch.randn(self.width).to(self.device, self.dtype)
+                input2 = input2 / torch.norm(input2)
+        elif mode == "sensitivity":
+            input1 = torch.randn(self.width).to(self.device,self.dtype)
+            epsilon = noise_level * torch.randn(self.width).to(self.device, self.dtype)
+            input2 = input1 + epsilon
+
+            input1 = input1 / torch.norm(input1)
+            input2 = input2 / torch.norm(input2)
+
+        self.counter = 0
+        outputs1 = self.forward_single(input1, biases,  weight_scale=weight_scale)#, normalize=normalize)
+
+        self.counter = 0
+        outputs2 = self.forward_single(input2, biases, weight_scale=weight_scale)#, normalize=normalize)
+
+        return (outputs1 - outputs2) ** 2
+        # return torch.sum((outputs1 - outputs2) ** 2, dim=1)

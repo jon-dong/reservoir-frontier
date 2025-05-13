@@ -65,7 +65,7 @@ class LinOp:
         else:
             return ScalarMul(self, other)
 
-    def __matmul__[T: (LinOp, th.Tensor)](self, other: T) -> T:
+    def __matmul__(self, other):
         if isinstance(other, LinOp):
             return Composition(self, other)
         return self.apply(other)
