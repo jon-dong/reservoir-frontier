@@ -1,10 +1,7 @@
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
 import porespy as ps
 import os
-from tqdm import tqdm
-from Reservoir import CustomReservoir
 from utils import *
 from matplotlib.gridspec import GridSpec
 import matplotlib
@@ -210,6 +207,7 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
           # # dim_list_spore.append(np.median(ret_spore_zero.slope))
           # dim_list_edge_spore.append()
       axs.append(fig.add_subplot(gs[:2, 2*idx:2*(idx+1)], sharey=None if idx==0 else axs[0]))
+
       axs[-1].scatter(thresh_list, dim_list_edge)
       axs[-1].set_title(titles[idx], fontsize=10)
       axs[-1].grid(True)
@@ -242,8 +240,9 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
 
 if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
-  folder = '250130/'
+  folder = 'data/fractal_fc/'
   #final_dim_edge_list, final_spore_list, max_thresholds = 
-  final_plot_threshold_all(folder, threshold_list_number = 2)
-  #fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
-  #zooming_plot(folder)
+  final_plot_threshold_all(folder, threshold_list_number = 32)
+  # fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
+  # zooming_plot(folder)
+
