@@ -89,13 +89,14 @@ save = True
 # Bounds for n_res = 100
 # weight_scale_bounds = [0, 4]
 # bias_scale_bounds = [0, 4]
-weight_scale_bounds = [2.0, 2.4]
-bias_scale_bounds = [1.8, 2.2]
+# weight_scale_bounds = [2.0, 2.4]
+# bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
 # weight_scale_bounds = [2.1875, 2.2125]
 # bias_scale_bounds = [2.0375, 2.0625]
-
+weight_scale_bounds = [2.1625, 2.1875]
+bias_scale_bounds = [2.0375, 2.0625]
 
 # weight_scale_bounds = [2.3, 2.5]
 # bias_scale_bounds = [2.3, 2.5]

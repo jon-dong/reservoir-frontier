@@ -239,7 +239,7 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
 
 if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
-  folder = 'zooming/'
+  folder = 'data/fractal_struct/'
   #final_dim_edge_list, final_spore_list, max_thresholds = 
   final_plot_threshold_all(folder, threshold_list_number = 32)
   # fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
