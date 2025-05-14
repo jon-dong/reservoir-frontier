@@ -44,7 +44,7 @@ class Network(torch.nn.Module):
                 "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
             )
             self.linops = [
-                linop.StructuredRandom(
+                np.sqrt(2) * linop.StructuredRandom(
                     shape=(width,),
                     n_layers=n_layers,
                     mags=mags,
@@ -80,7 +80,7 @@ class Network(torch.nn.Module):
         res: shape (state_size)
         """
         output = self.activation(
-            weight_scale * self.linops[self.counter].apply(input)
+            weight_scale * torch.real(self.linops[self.counter].apply(input.view(1, 1, -1)))
             + bias_scale * bias.to(self.device)
         )
         self.counter += 1

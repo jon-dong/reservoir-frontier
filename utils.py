@@ -196,7 +196,7 @@ def stability_test1d(
             ) 
         models.append(model)
 
-    rc_metric = torch.zeros(n_hist, width).to(device)
+    rc_metric = torch.zeros(n_hist, width)
     for i in range(n_channels):
         models[i].bias_scale = bias_scale
         # models[i].weight_scale = weight_scale

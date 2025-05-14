@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn
 import torch
+from tqdm import tqdm
 
 from utils import stability_test1d
 
@@ -52,12 +53,12 @@ def get_freer_gpu(verbose=True):
     return device
 
 device = get_freer_gpu()
-data_folder = "data/runs/"
+data_folder = "data/1d/"
 
 
 seed = 0
-width = 101 # state size
-depth = 99 # input length for reservoir
+width = 4000 # state size
+depth = 100 # input length for reservoir
 mode = "rand" # in ['rand', 'struct', 'conv']
 additional = '' # additional name for saving
 
@@ -68,7 +69,7 @@ residual_length = None # residual connection length
 residual_interval = None # residual connection interval
 
 stability_mode = "independent" # in ['sensitivity', 'independent']
-noise_level = 1e-15 # for sensitivity analysis
+noise_level = 1e-5 # for sensitivity analysis
 
 # struct
 n_layers = 1.5
@@ -76,7 +77,7 @@ mags = ['unit'] # in ['marchenko', 'unit']
 osr = 1.01 # oversampling ratio
 
 # conv
-kernel_size = width
+kernel_size = width // 4
 
 if mode == 'rand':
     n_layers = None
@@ -92,37 +93,52 @@ bias_scale = 1
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel'+str(kernel_size) if mode=='conv' else ''}{'_layer'+str(n_layers) if mode=='struct' else ''}_{additional}_seed{seed}_weight{weight_scale}_bias{bias_scale}/"
 
-metric_erf = stability_test1d(
-    width=width,
-    depth=depth,
-    mode=mode,
-
-    n_channels = n_channels,
-    n_linops=n_linops,
-    constant_input=False,
-    normalize=normalize,
-    residual_length=residual_length,
-    residual_interval=residual_interval,
-
-    n_layers=n_layers,
-    mags=mags,
-    osr=osr,
-    kernel_size=kernel_size,
-    n_hist=depth,
-
-    stability_mode=stability_mode,
-    noise_level=noise_level,
-    weight_scale=weight_scale,
-    bias_scale=bias_scale,
-
-    device=device,
-    seed=seed,
+n_lines = 16
+weight_scale_bounds = [1, 2.5]
+weight_scales = np.linspace(
+    weight_scale_bounds[0], weight_scale_bounds[1], num=n_lines
 )
 
-print(metric_erf.shape)
+res = np.zeros((depth, n_lines))
+for (i, weight_scale) in tqdm(enumerate(weight_scales)):
+    res[:, i] = torch.sum(stability_test1d(
+        width=width,
+        depth=depth,
+        mode=mode,
 
+        n_channels = n_channels,
+        n_linops=n_linops,
+        constant_input=False,
+        normalize=normalize,
+        residual_length=residual_length,
+        residual_interval=residual_interval,
+
+        n_layers=n_layers,
+        mags=mags,
+        osr=osr,
+        kernel_size=kernel_size,
+        n_hist=depth,
+
+        stability_mode=stability_mode,
+        noise_level=noise_level,
+        weight_scale=weight_scale,
+        bias_scale=bias_scale,
+
+        device=device,
+        seed=seed,
+    ), dim=1)
 
 plt.figure()
 seaborn.set_style("whitegrid")
-plt.semilogy(torch.sum(metric_erf, dim=1))
+plt.semilogy(res)
+plt.xlabel("Depth")
+plt.ylabel("Divergence metric")
+plt.legend(weight_scales)
+
+if not os.path.exists(data_folder + save_folder):
+    os.makedirs(data_folder + save_folder)
+# plt.savefig(f"{data_folder}{save_folder}plot.pdf")
+plt.savefig(f"{data_folder}{save_folder}plot.png")
+np.save(data_folder + save_folder + "res.npy", res)
+np.save(data_folder + save_folder + "weight_scales.npy", weight_scales)
 plt.show()
