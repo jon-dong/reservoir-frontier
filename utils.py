@@ -321,7 +321,7 @@ def compute_dim(X, min_idx, max_idx):
     log_count, log_scales = log_count_for_j_scales(X)
     H, V = linear_regression(log_scales[min_idx:max_idx], log_count[min_idx:max_idx])
 
-    return -H, log_count, log_scales
+    return -H, V, log_count, log_scales
 
 def fractal_dim_folder(folder, title_plot=None):
     '''
