@@ -25,12 +25,11 @@ class CustomReservoir(torch.nn.Module):
         self.res_size = res_size
         self.input_scale = input_scale
         self.res_scale = res_scale
-        self.seed = seed
+#         self.seed = seed
         self.device = device
 
         # Weights generation
-        if seed is not None:
-            torch.manual_seed(self.seed)
+#         torch.manual_seed(self.seed)
         if W_in is None:
           self.W_in = torch.randn(res_size, input_size).to(self.device)
         else:
@@ -56,50 +55,72 @@ class CustomReservoir(torch.nn.Module):
         elif f == 'heaviside':
             self.f = torch.heaviside
 
-    def forward(self, input_data, initial_state=None):
+    def forward(self, input, state=None):
         """
         Compute the reservoir states for the given sequence
         :param input_data: input sequence of shape (seq_len, input_size)
         :param initial_state: initial reservoir state at t=0 (res_size, )
         :return: successive reservoir states (seq_len+1, res_size)
         """
-        input_data = input_data.to(self.device)
-        seq_len = input_data.shape[0]
+        input = input.to(self.device)
+        seq_len = input.shape[0]
         states = torch.zeros((seq_len+1, self.res_size)).to(self.device)  
         # will contain the reservoir states
-        if initial_state is not None:
-            states[0, :] = initial_state
+        if state is not None:
+            states[0, :] = state
 
         for i in range(seq_len):
             states[i+1, :] = self.f(
-                    self.input_scale * self.W_in @ input_data[i, :] +
+                    self.input_scale * self.W_in @ input[i, :] +
                     self.res_scale * self.W_res @ states[i, :]
                 ) / np.sqrt(self.res_size)
         return states
     
-    def forward_parallel(self, input_data, res_scale_list, initial_state=None):
+    def forward_parallel(self, input, res_scales, state=None):
         """
-        Compute the reservoir states for the given sequence, in parallel for different values of res_scale
-        :param input_data: input sequence of shape (seq_len, input_size)
-        :param initial_state: initial reservoir state at t=0 (n_res_scale, res_size, )
+        Forward on multiple reservoir scales for the same input
+
+        :param input: input sequence of shape (seq_len, input_size)
+        :param res_scales: list of reservoir scales
+        :param state: initial reservoir state at t=0 (res_size,) for ALL scales
+
         :return: successive reservoir states (n_res_scale, seq_len+1, res_size)
         """
-        n_res_scale = len(res_scale_list)
-        input_data = input_data.to(self.device)
-        seq_len = input_data.shape[0]
+        input = input.to(self.device)
+        seq_len = input.shape[0]
+
+        n_res_scale = len(res_scales)
         states = torch.zeros((n_res_scale, seq_len+1, self.res_size)).to(self.device)  
         # will contain the reservoir states
-        if initial_state is not None:
-            states[:, 0, :] = initial_state
+        if state is not None:
+            states[:, 0, :] = state
 
-        res_scale_tensor = torch.tensor(res_scale_list).to(self.device).unsqueeze(1)
+        res_scales = torch.tensor(res_scales).to(self.device).unsqueeze(1)
         for i in range(seq_len):
-            input_contribution = self.input_scale * self.W_in @ input_data[i, :]
+            input_contribution = self.input_scale * self.W_in @ input[i, :]
             input_contribution = input_contribution.repeat(n_res_scale, 1)
-            res_contributions = res_scale_tensor * (states[:, i, :] @ self.W_res)
+            res_contributions = res_scales * (states[:, i, :] @ self.W_res)
             states[:, i+1, :] = self.f(
                     input_contribution +
                     res_contributions
                 ) / np.sqrt(self.res_size)
         return states
         
+    def stability_test(self, input, res_scales, state1=None, state2=None):
+        """
+        Stability test on the same input and different reservoir scales
+        
+        Follows the distance between the reservoir states through time, whether they converge to the same trajectory
+        """
+        n_res_scale = len(res_scales)
+        if state1 is None:
+            state1 = torch.randn(self.res_size).to(self.device) / np.sqrt(self.res_size)
+            state1 = state1 / torch.norm(state1)
+            state1 = state1.repeat(n_res_scale, 1)
+        if state2 is None:
+            state2 = torch.randn(self.res_size).to(self.device) / np.sqrt(self.res_size)
+            state2 = state2 / torch.norm(state2)
+            state2 = state2.repeat(n_res_scale, 1)
+        states1 = self.forward_parallel(input, res_scales, state1)
+        states2 = self.forward_parallel(input, res_scales, state2)
+        return torch.sum((states1 - states2)**2, dim=2)
