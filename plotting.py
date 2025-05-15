@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import porespy as ps
 import os
-from utils import *
+from utils_fractals import *
 from matplotlib.gridspec import GridSpec
 import matplotlib
 
@@ -80,7 +80,7 @@ def final_plot_threshold(folder, threshold_list_number = 32):
           min_idx = 0
           max_idx = -1
           #H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
-          H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
+          H_edges, V_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
 
           #print(f"Slope (H): {H}, Slope edges (H): {H_edges}")#, Intercept (V): {V}")
           # dim_spore = estimate_fractal_dimension([signed_field])
@@ -99,12 +99,12 @@ def final_plot_threshold(folder, threshold_list_number = 32):
           # dim_list_edge_spore.append()
   
       axs[idx].scatter(thresh_list, dim_list_edge)
-      axs[idx].set_title(file.replace(folder.replace("/",""),"").replace("_HR.npy",""))
+      axs[idx].set_title(file.replace(folder.replace("/",""),"").replace(".npy","").replace("fractal_"," "))
       axs[idx].grid(True)
       axs[idx].set_xscale('log')
 
   #Title can be adjusted
-  fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
+  #fig.suptitle(r'dim $\partial L_{\leq \varepsilon}$ by lin reg',fontsize=16)
 
   fig.savefig(f'{folder.replace("/","")}_threshold_plot.pdf')
 
@@ -124,7 +124,7 @@ def fractal_dim_convergence_plots(fields, threshold_list):
     min_idx = 0
     max_idx = -1
     #H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
-    H_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
+    H_edges, V_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
 
     fig, axs = plt.subplots(1,2, figsize= (12,6))
 
@@ -134,6 +134,30 @@ def fractal_dim_convergence_plots(fields, threshold_list):
 
     axs[1].axhline(H_edges)
     axs[1].plot(ret_spore_zero.size, ret_spore_zero.slope)#[:-3]
+
+def fractal_lin_regs(fields, threshold_list):
+  colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+  fig, ax = plt.subplots()
+  for (field, threshold,c) in zip(fields,threshold_list,colors):
+    field_of_zeros = np.abs(field) <= threshold
+
+    signed_field = np.ones(field_of_zeros.shape)
+    signed_field[field_of_zeros]*= -1
+    edges = extract_edges(signed_field)
+
+
+    min_idx = 0
+    max_idx = -1
+    #H, log_count, log_scales = compute_dim(field_of_zeros, min_idx, max_idx)
+    H_edges, V_edges, log_count_edges, log_scales_edges = compute_dim(edges, min_idx, max_idx)
+
+    ax.scatter(log_scales_edges, log_count_edges, marker='x', c=c)
+    x = np.linspace(log_scales_edges[0],log_scales_edges[-1],2)
+    y = -H_edges*x + V_edges
+    ax.plot(x,y, c=c, label = f'{H_edges:.2f}')
+    legend = plt.legend( title="Estimated fractal dimension")#,
+                    #loc=4, fontsize='small', fancybox=True)
+  fig.savefig(f'{folder.replace("/","")}_lin_reg_plot.pdf')
 
 def fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list):
   _, axs = plt.subplots(1,2, figsize= (12,6))
@@ -150,6 +174,7 @@ def fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list
     #axs[1].scatter(ret_spore_zero.size, ret_spore_zero.slope, marker='x', c=c)
   plt.savefig(f'{folder.replace("/","")}_convergence_plot.pdf')
   return
+
 
 def final_plot_threshold_all(folder, threshold_list_number = 32):
   fields = [] 
@@ -240,9 +265,12 @@ def final_plot_threshold_all(folder, threshold_list_number = 32):
 
 if __name__=='__main__':
    #fractal_dim_folder('250130stability_frontier_data/', title_plot='prova')
-  folder = 'data/fractal_fc/'
-  #final_dim_edge_list, final_spore_list, max_thresholds = 
-  final_plot_threshold_all(folder, threshold_list_number = 32)
-  # fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
-  # zooming_plot(folder)
-
+  folder = 'data/fractal_struct/'
+  fields = []
+  for file in sorted(os.listdir(folder)):
+      img = np.load(folder+file,allow_pickle=True)
+      fields.append(img.copy())
+  _, _, max_thresholds = final_plot_threshold(folder, threshold_list_number = 32)
+  fractal_lin_regs(fields, max_thresholds)
+  #fractal_dim_convergence_plots2(folder, final_dim_edge_list, final_spore_list)
+  #zooming_plot(folder)

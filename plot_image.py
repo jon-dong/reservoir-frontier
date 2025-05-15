@@ -72,9 +72,9 @@ for folder in os.listdir(path):
     indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
 
     ax.set_xticks(indXx)
-    ax.set_xticklabels(xlab)
+    ax.set_xticklabels(xlab.round(4))
     ax.set_yticks(indXy)
-    ax.set_yticklabels(ylab)
+    ax.set_yticklabels(ylab.round(4))
     ax.set_xlabel("Weight variance")
     ax.set_ylabel("Bias variance")
 

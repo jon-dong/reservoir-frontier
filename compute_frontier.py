@@ -55,19 +55,19 @@ device = get_freer_gpu()
 data_folder = "data/runs/"
 
 seed = 0
-width = 1000 # state size
-depth = 1000 # input length for reservoir
-mode = "conv" # in ['rand', 'struct', 'conv']
-additional = '' # additional name for saving
+width = 100 # state size
+depth = 10 # input length for reservoir
+mode = "rand" # in ['rand', 'struct', 'conv']
+additional = 'lnorm1e-5' # additional name for saving
 
-normalize = False # layer normalization
+normalize = True # layer normalization
 n_channels = 1 # multiple networks and average errors
 n_linops = depth # number of linops to iterate on
 residual_length = None # residual connection length
 residual_interval = None # residual connection interval
 
-stability_mode = "independent" # in ['sensitivity', 'independent']
-noise_level = 1e-15 # for sensitivity analysis
+stability_mode = "sensitivity" # in ['sensitivity', 'independent']
+noise_level = 1e-5 # for sensitivity analysis
 resolution = 1000 # number of scales
 
 # struct
@@ -96,6 +96,8 @@ bias_scale_bounds = [0, 4]
 # weight_scale_bounds = [2.1875, 2.2125]
 # bias_scale_bounds = [2.0375, 2.0625]
 # weight_scale_bounds = [2.1625, 2.1875]
+# bias_scale_bounds = [2.0375, 2.0625]
+# weight_scale_bounds = [2.168, 2.193]
 # bias_scale_bounds = [2.0375, 2.0625]
 
 # weight_scale_bounds = [2.3, 2.5]
