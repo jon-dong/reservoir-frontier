@@ -5,3 +5,4 @@ data/*
 !data/250130stability_frontier_data
 tmp
 zooming/
+.venv
