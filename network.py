@@ -177,7 +177,7 @@ class Network(torch.nn.Module):
         weight_scales=[1.0],
         bias_scale=None,
         normalize=False,
-        start=100,
+        start=1,
     ):
         """forward pass on multiple state scales for a single input.
 
@@ -221,7 +221,7 @@ class Network(torch.nn.Module):
                 self.hist_states[i] = curr
             if normalize:
                 # current = torch.nn.functional.normalize(current, p=2, dim=1)
-                curr = (curr - torch.mean(curr, dim=1, keepdim=True))/ (torch.std(curr, dim=1, keepdim=True) + 1e-5)
+                curr = (curr - torch.mean(curr, dim=1, keepdim=True))/ (torch.std(curr, dim=1, keepdim=True) + 1e-10)
             if i > (self.depth - self.n_hist):
                 outputs[:, i - 1 - self.depth + self.n_hist, :] = curr
         return outputs
