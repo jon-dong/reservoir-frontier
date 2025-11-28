@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch as th
 
-from base_linop import LinOp
+from .base_linop import LinOp
 
 
 class Distribution(ABC):
@@ -17,10 +17,10 @@ class Distribution(ABC):
     def pdf(self, x) -> np.ndarray:
         pass
 
-    def sample(self, shape: int|tuple[int, ...]) -> np.ndarray:
+    def sample(self, shape: int | tuple[int, ...]) -> np.ndarray:
         if isinstance(shape, int):
             shape = (shape,)
-        
+
         # compute the maximum value of the pdf if not yet computed
         if self.max_pdf is None:
             self.max_pdf = np.max(
@@ -48,15 +48,16 @@ class MarchenkoPastur(Distribution):
 
     It describes the asymptotic eigenvalue distribution of the matrix X = 1/sqrt(m) A^T A, where A is a matrix of shape m times n and sampled i.i.d. from a distribution with zero mean and variance sigma^2
     """
-    def __init__(self, alpha:float, sigma:float=1.0):
+
+    def __init__(self, alpha: float, sigma: float = 1.0):
         """
         alpha: oversampling ratio
         sigma: standard deviation of the element distribution
         """
-        assert alpha >= 0, 'oversampling ratio must be nonnegative' 
-        assert sigma >= 0, 'standard deviation must be nonnegative'
-        self.alpha = alpha # oversampling ratio
-        self.gamma = 1/alpha
+        assert alpha >= 0, "oversampling ratio must be nonnegative"
+        assert sigma >= 0, "standard deviation must be nonnegative"
+        self.alpha = alpha  # oversampling ratio
+        self.gamma = 1 / alpha
         self.sigma = 1
         self.min_supp = self.sigma**2 * (1 - math.sqrt(self.gamma)) ** 2
         self.max_supp = self.sigma**2 * (1 + math.sqrt(self.gamma)) ** 2
@@ -70,11 +71,12 @@ class MarchenkoPastur(Distribution):
             2 * np.pi * self.sigma**2 * self.gamma * x
         )
 
-    def sample(self,
-               shape,
-               normalized=False,
-               include_zero=True,
-               ) -> np.ndarray:
+    def sample(
+        self,
+        shape,
+        normalized=False,
+        include_zero=True,
+    ) -> np.ndarray:
         """using acceptance-rejection sampling if oversampling ratio is more than 1, otherwise using the eigenvalues sampled from a real matrix"""
         n_samples = np.prod(shape)
         if self.alpha < 1.0:
@@ -90,15 +92,19 @@ class MarchenkoPastur(Distribution):
         elif self.alpha == 1.0:
             # equisampling
             #! The distribution has min support at 0, leading to a very high peak near 0 and difficulty to sample from acceptance-rejection sampling
-            #! Instead, we directly eigenvalue decompose a matrix to get the eigenvalues 
-            X = 1 / np.sqrt(n_samples) * th.randn((n_samples, n_samples), dtype=th.cfloat)
+            #! Instead, we directly eigenvalue decompose a matrix to get the eigenvalues
+            X = (
+                1
+                / np.sqrt(n_samples)
+                * th.randn((n_samples, n_samples), dtype=th.cfloat)
+            )
             samples, _ = th.linalg.eig(X.conj().T @ X)
         else:
             # oversampling
             samples = super().sample(shape)
         if normalized:
             # normalize the samples such that E[x^2] = 1
-            samples = samples / np.sqrt(1+self.gamma) / (self.sigma**2)
+            samples = samples / np.sqrt(1 + self.gamma) / (self.sigma**2)
         return samples.reshape(shape)
 
     def mean(self):
@@ -112,9 +118,7 @@ class Random(LinOp):
     def __init__(self, size, dtype=th.float64, device="cpu"):
         self.dtype = dtype
         self.device = device
-        self.matrix = (
-            th.randn(size, size).to(self.dtype).to(self.device)
-        )
+        self.matrix = th.randn(size, size).to(self.dtype).to(self.device)
 
     def apply(self, x):
         """perform the linear operator on the input x.
@@ -136,15 +140,19 @@ class Rademacher(LinOp):
     def apply(self, x):
         return self.values * x
 
+
 class Uniform(LinOp):
     def __init__(self, shape, dtype, device):
         self.in_shape = shape
         self.out_shape = shape
         # generate a tensor with each element following the rademacher distribution
-        self.values = th.exp(1j*2*th.pi*(th.rand(shape)-0.5)).to(dtype).to(device)
+        self.values = (
+            th.exp(1j * 2 * th.pi * (th.rand(shape) - 0.5)).to(dtype).to(device)
+        )
 
     def apply(self, x):
         return self.values * x
+
 
 class Fft(LinOp):
     def __init__(self):
@@ -178,7 +186,9 @@ class StructuredRandom(LinOp):
         dtype=th.float64,
         device=th.device("cpu"),
     ):
-        assert len(mags) == n_layers or n_layers - len(mags) == 0.5, "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
+        assert len(mags) == n_layers or n_layers - len(mags) == 0.5, (
+            "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
+        )
 
         self.in_shape = shape
         self.out_shape = shape
@@ -186,16 +196,19 @@ class StructuredRandom(LinOp):
         self.diagonals = []
         for mag in mags:
             if mag == "unit":
-                self.diagonals.append(
-                    Uniform(shape, dtype=th.complex64, device=device)
-                )
+                self.diagonals.append(Uniform(shape, dtype=th.complex64, device=device))
                 # self.diagonals.append(
                 #     Rademacher(shape, dtype, device)
                 # )
             elif mag == "marchenko":
                 diagonal = Uniform(shape, dtype=th.complex64, device=device)
                 # diagonal = Rademacher(shape, dtype, device)
-                diagonal.values = th.tensor(MarchenkoPastur(osr).sample(shape, normalized=True)).to(dtype).to(device) * diagonal.values
+                diagonal.values = (
+                    th.tensor(MarchenkoPastur(osr).sample(shape, normalized=True))
+                    .to(dtype)
+                    .to(device)
+                    * diagonal.values
+                )
                 self.diagonals.append(diagonal)
         self.dtype = dtype
         self.device = device
@@ -229,9 +242,22 @@ class RandomConvolution(LinOp):
         self.out_shape = shape
         self.kernel_size = kernel_size
         #! do not include bias
-        self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding='same', padding_mode='circular', bias=False).to(dtype).to(device)
+        self.kernel = (
+            th.nn.Conv1d(
+                in_channels=1,
+                out_channels=1,
+                kernel_size=kernel_size,
+                padding="same",
+                padding_mode="circular",
+                bias=False,
+            )
+            .to(dtype)
+            .to(device)
+        )
         # self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding=kernel_size // 2, padding_mode='circular').to(dtype).to(device)
-        self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(device)/np.sqrt(kernel_size)
+        self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(
+            device
+        ) / np.sqrt(kernel_size)
         self.dtype = dtype
         self.device = device
 
