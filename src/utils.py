@@ -1,7 +1,10 @@
 import os
 from warnings import warn
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn
 import torch
 
 
@@ -45,3 +48,61 @@ def get_freer_gpu(verbose=True):
         print(f"Selected GPU {idx} with {mem} MiB free memory ")
 
     return device
+
+
+def plot_frontier(
+    errs,
+    W_scale_range,
+    b_scale_range,
+    resolution,
+    save_path=None,
+):
+    plt.figure()
+    seaborn.set_style("whitegrid")
+    img = errs.T
+    threshold = 1e-5
+    img[img < threshold] = threshold
+    bias_min = 0
+    bias_max = 1
+    weight_min = 0
+    weight_max = 1
+    plt.imshow(
+        img[
+            int(bias_min * resolution) : int(bias_max * resolution),
+            int(weight_min * resolution) : int(weight_max * resolution),
+        ],
+        norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
+    )  #
+
+    ax = plt.gca()
+    plt.grid(False)
+    plt.clim(threshold, 1)
+    plt.colorbar()
+
+    bias_scale_min = b_scale_range[0] + bias_min * (b_scale_range[1] - b_scale_range[0])
+    bias_scale_max = b_scale_range[0] + bias_max * (b_scale_range[1] - b_scale_range[0])
+    weight_scale_min = W_scale_range[0] + weight_min * (
+        W_scale_range[1] - W_scale_range[0]
+    )
+    weight_scale_max = W_scale_range[0] + weight_max * (
+        W_scale_range[1] - W_scale_range[0]
+    )
+    ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(b_scale_range[1] + 1))
+    xlab = np.linspace(
+        weight_scale_min, weight_scale_max, num=int(W_scale_range[1] + 1)
+    )
+    indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
+    indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
+
+    ax.set_xticks(indXx)
+    ax.set_xticklabels(xlab)
+    ax.set_yticks(indXy)
+    ax.set_yticklabels(ylab)
+    ax.set_xlabel("Weight variance")
+    ax.set_ylabel("Bias variance")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300)
+    plt.show()
+
+    return

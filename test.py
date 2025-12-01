@@ -5,16 +5,29 @@ import numpy as np
 import seaborn
 import torch
 
+from src.fractal import generate_input
 from src.network import Network
-from src.utils import get_freer_gpu
+from src.utils import get_freer_gpu, plot_frontier
 
 # %%
+dtype = torch.float32
 device = get_freer_gpu()
 device
 
 # %%
 W_scale_range = [0, 4]
 b_scale_range = [0, 4]
+# W_scale_range = [2.0, 2.4]
+# b_scale_range = [1.8, 2.2]
+# W_scale_range = [2.15, 2.25]
+# b_scale_range = [2.0, 2.1]
+# W_scale_range = [2.1875, 2.2125]
+# b_scale_range = [2.0375, 2.0625]
+# W_scale_range = [2.1625, 2.1875]
+# b_scale_range = [2.0375, 2.0625]
+# W_scale_range = [2.168, 2.193]
+# b_scale_range = [2.0375, 2.0625]
+torch.manual_seed(0)
 resolution = 1000
 W_scales = torch.linspace(W_scale_range[0], W_scale_range[1], steps=resolution).to(
     device
@@ -22,6 +35,8 @@ W_scales = torch.linspace(W_scale_range[0], W_scale_range[1], steps=resolution).
 b_scales = torch.linspace(b_scale_range[0], b_scale_range[1], steps=resolution).to(
     device
 )
+n_chunks = 1
+b_scales_chunks = b_scales.chunk(n_chunks)
 
 # %%
 width = 1000
@@ -31,7 +46,10 @@ network = Network(
     depth=depth,
     bias_scale=1.0,
     W_bias=torch.randn(width, width).to(device),
-    mode="rand",
+    mode="struct",
+    # kernel_size=width,
+    n_layers=1.5,
+    mags=["unit", "marchenko"],
     device=device,
 )
 
@@ -40,52 +58,30 @@ bs = torch.randn(depth, width).to(device)
 for i in range(depth):  # normalize input at each time step
     bs[i, :] = bs[i, :] / torch.norm(bs[i, :])
 
-input1 = torch.randn(width).to(device)
-input1 /= torch.norm(input1)
-input2 = torch.randn(width).to(device)
-input2 /= torch.norm(input2)
+input1, input2 = generate_input(width, mode="independent", device=device, dtype=dtype)
 
-outputs1 = network.forward(input1, bs=bs, W_scales=W_scales, b_scales=b_scales)
-outputs2 = network.forward(input2, bs=bs, W_scales=W_scales, b_scales=b_scales)
+outputs1 = []
+outputs2 = []
+for b_scale_chunk in b_scales_chunks:
+    outputs1.append(
+        network.forward(input1, bs=bs, W_scales=W_scales, b_scales=b_scale_chunk)[0]
+    )
+    outputs2.append(
+        network.forward(input2, bs=bs, W_scales=W_scales, b_scales=b_scale_chunk)[0]
+    )
+
+outputs1 = torch.cat(outputs1, dim=1)
+outputs2 = torch.cat(outputs2, dim=1)
 
 # %%
 outputs1.squeeze_()
 outputs2.squeeze_()
 errs = torch.sum((outputs1 - outputs2) ** 2, dim=2).cpu().numpy()
-plt.figure()
-seaborn.set_style("whitegrid")
-img = errs.T
-threshold = 1e-5
-img[img < threshold] = threshold
-bias_min = 0
-bias_max = 1
-weight_min = 0
-weight_max = 1
-plt.imshow(
-    img[
-        int(bias_min * resolution) : int(bias_max * resolution),
-        int(weight_min * resolution) : int(weight_max * resolution),
-    ],
-    norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
-)  #
 
-ax = plt.gca()
-plt.grid(False)
-plt.clim(threshold, 1)
-plt.colorbar()
-
-bias_scale_min = b_scale_range[0] + bias_min * (b_scale_range[1] - b_scale_range[0])
-bias_scale_max = b_scale_range[0] + bias_max * (b_scale_range[1] - b_scale_range[0])
-weight_scale_min = W_scale_range[0] + weight_min * (W_scale_range[1] - W_scale_range[0])
-weight_scale_max = W_scale_range[0] + weight_max * (W_scale_range[1] - W_scale_range[0])
-ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(b_scale_range[1] + 1))
-xlab = np.linspace(weight_scale_min, weight_scale_max, num=int(W_scale_range[1] + 1))
-indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
-indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
-
-ax.set_xticks(indXx)
-ax.set_xticklabels(xlab)
-ax.set_yticks(indXy)
-ax.set_yticklabels(ylab)
-ax.set_xlabel("Weight variance")
-ax.set_ylabel("Bias variance")
+plot_frontier(
+    errs,
+    W_scale_range,
+    b_scale_range,
+    resolution,
+    # save_path="data/frontier_plot.png",
+)

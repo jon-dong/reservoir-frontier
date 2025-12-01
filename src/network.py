@@ -12,7 +12,6 @@ class Network(torch.nn.Module):
         depth,
         bias_scale,
         W_bias,
-        n_hist=1,
         n_linops=1,
         n_layers=None,
         mode="rand",
@@ -34,7 +33,6 @@ class Network(torch.nn.Module):
         self.W_bias = W_bias.to(device, dtype)
         self.bias_scale = bias_scale
         self.mode = mode
-        self.n_hist = n_hist
         if mode == "rand":
             self.linops = [
                 linop.Random(size=width, dtype=dtype, device=device)
@@ -163,12 +161,15 @@ class Network(torch.nn.Module):
         elif self.mode in ["struct", "conv"]:
             return x_new
 
-    def forward(self, x, bs, W_scales=None, b_scales=None, start=1, normalize=False):
+    def forward(
+        self, x, bs, W_scales=None, b_scales=None, start=1, normalize=False, n_hist=1
+    ):
         assert bs.shape[0] == self.depth, "Depth mismatch"
         assert bs.shape[1] == self.width, "Input size mismatch"
         assert x.shape[0] == self.width, "input size and width mismatch"
 
-        n_scales = len(W_scales)
+        n_W_scales = len(W_scales)
+        n_b_scales = len(b_scales)
 
         bs = torch.einsum(
             "ij,nj -> ni",
@@ -177,9 +178,9 @@ class Network(torch.nn.Module):
         )
 
         if x.ndim == 1:
-            x = x.repeat(n_scales, n_scales, 1).to(self.device, self.dtype)
+            x = x.repeat(n_W_scales, n_b_scales, 1).to(self.device, self.dtype)
         self.hist_states[0] = x
-        outputs = torch.zeros(n_scales, n_scales, self.n_hist, self.width).to(
+        outputs = torch.zeros(n_hist, n_W_scales, n_b_scales, self.width).to(
             self.device
         )
 
@@ -202,8 +203,8 @@ class Network(torch.nn.Module):
                 x = (x - torch.mean(x, dim=1, keepdim=True)) / (
                     torch.std(x, dim=1, keepdim=True) + 1e-10
                 )
-            if i > (self.depth - self.n_hist):
-                outputs[:, :, i - 1 - self.depth + self.n_hist, :] = x
+            if i > (self.depth - n_hist):
+                outputs[i - 1 - self.depth + n_hist] = x
         return outputs
 
     def forward_single(self, input, biases, weight_scale=1.0, bias_scale=None):

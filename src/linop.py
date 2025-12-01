@@ -221,13 +221,15 @@ class StructuredRandom(LinOp):
         #     self.model = Fft() @ self.model
 
     def apply(self, x):
-        # benchmark running time after every operation
-        if self.n_layers - math.floor(self.n_layers) > 0:
-            x = th.fft.fft(x, norm="ortho")
-        for i in range(math.floor(self.n_layers)):
-            x = self.diagonals[i].apply(x)
-            x = th.fft.fft(x, norm="ortho")
-        return x
+        shape = x.shape
+        x = x.reshape(-1, shape[-1])
+        with th.no_grad():
+            if self.n_layers - math.floor(self.n_layers) > 0:
+                x = th.fft.fft(x, norm="ortho")
+            for i in range(math.floor(self.n_layers)):
+                x = self.diagonals[i].apply(x)
+                x = th.fft.fft(x, norm="ortho")
+        return x.reshape(shape)
 
 
 class RandomConvolution(LinOp):
@@ -241,7 +243,6 @@ class RandomConvolution(LinOp):
         self.in_shape = shape
         self.out_shape = shape
         self.kernel_size = kernel_size
-        #! do not include bias
         self.kernel = (
             th.nn.Conv1d(
                 in_channels=1,
@@ -249,7 +250,7 @@ class RandomConvolution(LinOp):
                 kernel_size=kernel_size,
                 padding="same",
                 padding_mode="circular",
-                bias=False,
+                bias=False,  # not include bias
             )
             .to(dtype)
             .to(device)
@@ -262,8 +263,10 @@ class RandomConvolution(LinOp):
         self.device = device
 
     def apply(self, x):
+        shape = x.shape
+        x = x.reshape(-1, shape[-1])
         x = x.unsqueeze(1)
         with th.no_grad():  # Disable autograd for Conv1d
             x = self.kernel(x)
         x = x.squeeze(1)
-        return x
+        return x.reshape(shape)
