@@ -10,16 +10,11 @@ class Network(torch.nn.Module):
         self,
         width,
         depth,
-        bias_scale,
-        W_bias,
-        n_linops=1,
-        n_layers=None,
-        mode="rand",
-        residual_length=None,  # the length of the residual connection
-        residual_interval=None,  # the distance between two residual connections
-        kernel_size=None,
-        mags=["unit", "unit"],
-        osr=1.5,
+        mode: str = "rand",
+        n_linops: int = 1,
+        resid_span: int | None = None,  # length of the residual connection
+        resid_stride: int | None = None,  # distance between two residual connections
+        config: dict | None = None,
         dtype=torch.float32,
         device="cpu",
     ):
@@ -30,8 +25,8 @@ class Network(torch.nn.Module):
 
         self.width = width
         self.depth = depth
-        self.W_bias = W_bias.to(device, dtype)
-        self.bias_scale = bias_scale
+        self.activation = torch.erf
+
         self.mode = mode
         if mode == "rand":
             self.linops = [
@@ -39,8 +34,11 @@ class Network(torch.nn.Module):
                 for _ in range(n_linops)
             ]
         elif mode == "struct":
+            n_layers = config.get("n_layers", 2)
+            mags = config.get("mags", ["unit", "unit"])
+            osr = config.get("osr", 1.0)
             assert len(mags) == n_layers or n_layers - len(mags) == 0.5, (
-                "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
+                "Number of mags and layers mismatch"
             )
             self.linops = [
                 np.sqrt(2)
@@ -55,6 +53,7 @@ class Network(torch.nn.Module):
                 for _ in range(n_linops)
             ]
         elif mode == "conv":
+            kernel_size = config.get("kernel_size", width)
             self.linops = [
                 linop.RandomConvolution(
                     shape=(width,),
@@ -67,11 +66,9 @@ class Network(torch.nn.Module):
         self.n_linops = n_linops
         self.counter = 0
 
-        self.residual_length = residual_length
-        self.residual_interval = residual_interval
-        self.hist_states = [None] * (self.depth + 1)
-
-        self.activation = torch.erf
+        self.resid_span = resid_span
+        self.resid_stride = resid_stride
+        self.layer_outputs = [None] * (self.depth + 1)
 
     def iter_single(self, input, bias, weight_scale=1.0, bias_scale=1.0):
         """single forward for a single state scale on a single input.
@@ -162,27 +159,40 @@ class Network(torch.nn.Module):
             return x_new
 
     def forward(
-        self, x, bs, W_scales=None, b_scales=None, start=1, normalize=False, n_hist=1
+        self,
+        x,
+        bs,
+        W_scales=None,
+        b_scales=None,
+        normalize=False,
+        resid_start=1,
+        n_save_last=1,
     ):
-        assert bs.shape[0] == self.depth, "Depth mismatch"
-        assert bs.shape[1] == self.width, "Input size mismatch"
-        assert x.shape[0] == self.width, "input size and width mismatch"
+        """Forward pass on the entire network, input x is of shape (width,), output is of shape (n_hist, n_W_scales, n_b_scales, width)"""
+        assert x.shape == (self.width,), (
+            f"Input has incorrect shape {x.shape}, expected ({self.width},)"
+        )
+        assert bs.shape == (self.depth, self.width), (
+            f"Biases has incorrect shape {bs.shape}, expected ({self.depth}, {self.width})"
+        )
 
         n_W_scales = len(W_scales)
         n_b_scales = len(b_scales)
 
-        bs = torch.einsum(
-            "ij,nj -> ni",
-            self.W_bias,
-            bs,
-        )
+        # bs = torch.einsum(
+        #     "ij,nj -> ni",
+        #     self.W_bias,
+        #     bs,
+        # )
+        # breakpoint()
 
         if x.ndim == 1:
             x = x.repeat(n_W_scales, n_b_scales, 1).to(self.device, self.dtype)
-        self.hist_states[0] = x
-        outputs = torch.zeros(n_hist, n_W_scales, n_b_scales, self.width).to(
+        outputs = torch.zeros(n_save_last, n_W_scales, n_b_scales, self.width).to(
             self.device
         )
+        if self.resid_span is not None:
+            self.layer_outputs[0] = x
 
         for i in trange(1, self.depth + 1):
             x = self.iter(
@@ -192,19 +202,17 @@ class Network(torch.nn.Module):
                 b_scales=b_scales,
             )
             # * res connection with pre-activation
-            if self.residual_length is not None:
-                if i > start and (i - start) % self.residual_interval == 0:
-                    # print(f'adding residual connection from layer {i + 1 - self.residual_length} to layer {i + 1}')
-                    x += self.hist_states[i - self.residual_length]
-                # add new states
-                self.hist_states[i] = x
+            if self.resid_span is not None:
+                if i > resid_start and (i - resid_start) % self.resid_stride == 0:
+                    x += self.layer_outputs[i - self.resid_span]
+                self.layer_outputs[i] = x
             if normalize:
                 # current = torch.nn.functional.normalize(current, p=2, dim=1)
-                x = (x - torch.mean(x, dim=1, keepdim=True)) / (
-                    torch.std(x, dim=1, keepdim=True) + 1e-10
+                x = (x - torch.mean(x, dim=-1, keepdim=True)) / (
+                    torch.std(x, dim=-1, keepdim=True) + 1e-10
                 )
-            if i > (self.depth - n_hist):
-                outputs[i - 1 - self.depth + n_hist] = x
+            if i > (self.depth - n_save_last):
+                outputs[i - 1 - self.depth + n_save_last] = x
         return outputs
 
     def forward_single(self, input, biases, weight_scale=1.0, bias_scale=None):
@@ -276,7 +284,7 @@ class Network(torch.nn.Module):
         if bias_scale is None:
             bias_scale = self.bias_scale
 
-        self.hist_states[0] = curr  # length depth + 1
+        self.layer_outputs[0] = curr  # length depth + 1
         outputs = torch.zeros(n_scales, self.n_hist, self.width).to(self.device)
 
         for i in range(1, self.depth + 1):
@@ -287,12 +295,12 @@ class Network(torch.nn.Module):
                 bias_scale=bias_scale,
             )
             # * res connection with pre-activation
-            if self.residual_length is not None:
-                if i > start and (i - start) % self.residual_interval == 0:
+            if self.resid_span is not None:
+                if i > start and (i - start) % self.resid_stride == 0:
                     # print(f'adding residual connection from layer {i + 1 - self.residual_length} to layer {i + 1}')
-                    curr += self.hist_states[i - self.residual_length]
+                    curr += self.layer_outputs[i - self.resid_span]
                 # add new states
-                self.hist_states[i] = curr
+                self.layer_outputs[i] = curr
             if normalize:
                 # current = torch.nn.functional.normalize(current, p=2, dim=1)
                 curr = (curr - torch.mean(curr, dim=1, keepdim=True)) / (

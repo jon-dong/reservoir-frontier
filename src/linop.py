@@ -91,7 +91,7 @@ class MarchenkoPastur(Distribution):
                 samples = super().sample((n_samples,))
         elif self.alpha == 1.0:
             # equisampling
-            #! The distribution has min support at 0, leading to a very high peak near 0 and difficulty to sample from acceptance-rejection sampling
+            # * The distribution has min support at 0, leading to a very high peak near 0 and difficulty to sample from acceptance-rejection sampling
             #! Instead, we directly eigenvalue decompose a matrix to get the eigenvalues
             X = (
                 1
@@ -256,8 +256,8 @@ class RandomConvolution(LinOp):
             .to(device)
         )
         # self.kernel = th.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size, padding=kernel_size // 2, padding_mode='circular').to(dtype).to(device)
-        self.kernel.weight.data = th.randn(1, 1, kernel_size).to(dtype).to(
-            device
+        self.kernel.weight.data = (
+            th.randn(1, 1, kernel_size).to(dtype).to(device)
         ) / np.sqrt(kernel_size)
         self.dtype = dtype
         self.device = device

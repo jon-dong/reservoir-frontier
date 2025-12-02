@@ -107,8 +107,8 @@ def stability_test(
             mags=mags,
             osr=osr,
             kernel_size=kernel_size,
-            residual_length=residual_length,
-            residual_interval=residual_interval,
+            resid_span=residual_length,
+            resid_stride=residual_interval,
             mode=mode,
             device=device,
         )

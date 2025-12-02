@@ -10,6 +10,7 @@ import torch
 
 from utils import stability_test
 
+
 def get_freer_gpu(verbose=True):
     """
     Returns the GPU device with the most free memory.
@@ -51,34 +52,35 @@ def get_freer_gpu(verbose=True):
 
     return device
 
+
 device = get_freer_gpu()
 data_folder = "data/runs/"
 
 seed = 0
-width = 100 # state size
-depth = 10 # input length for reservoir
-mode = "rand" # in ['rand', 'struct', 'conv']
-additional = 'lnorm1e-5' # additional name for saving
+width = 20  # state size
+depth = 1000  # input length for reservoir
+mode = "conv"  # in ['rand', 'struct', 'conv']
+additional = ""  # additional name for saving
 
-normalize = True # layer normalization
-n_channels = 1 # multiple networks and average errors
-n_linops = depth # number of linops to iterate on
-residual_length = None # residual connection length
-residual_interval = None # residual connection interval
+normalize = False  # layer normalization
+n_channels = 1  # multiple networks and average errors
+n_linops = depth  # number of linops to iterate on
+residual_length = None  # residual connection length
+residual_interval = None  # residual connection interval
 
-stability_mode = "sensitivity" # in ['sensitivity', 'independent']
-noise_level = 1e-5 # for sensitivity analysis
-resolution = 1000 # number of scales
+stability_mode = "independent"  # in ['sensitivity', 'independent']
+noise_level = 1e-5  # for sensitivity analysis
+resolution = 1000  # number of scales
 
 # struct
 n_layers = 1.5
-mags = ['unit'] # in ['marchenko', 'unit']
-osr = 1.01 # oversampling ratio
+mags = ["unit"]  # in ['marchenko', 'unit']
+osr = 1.01  # oversampling ratio
 
 # conv
 kernel_size = width
 
-if mode == 'rand':
+if mode == "rand":
     n_layers = None
     mags = None
     osr = None
@@ -137,31 +139,27 @@ bias_scale_bounds = [0, 4]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel'+str(kernel_size) if mode=='conv' else ''}{'_layer'+str(n_layers) if mode=='struct' else ''}_{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
 metric_erf = stability_test(
     width=width,
     depth=depth,
     mode=mode,
-
-    n_channels = n_channels,
+    n_channels=n_channels,
     n_linops=n_linops,
     constant_input=False,
     normalize=normalize,
     residual_length=residual_length,
     residual_interval=residual_interval,
-
     n_layers=n_layers,
     mags=mags,
     osr=osr,
     kernel_size=kernel_size,
-
     stability_mode=stability_mode,
     noise_level=noise_level,
     resolution=resolution,
     weight_scale_bounds=weight_scale_bounds,
     bias_scale_bounds=bias_scale_bounds,
-
     device=device,
     seed=seed,
 )
@@ -201,7 +199,9 @@ weight_scale_max = weight_scale_bounds[0] + weight_max * (
     weight_scale_bounds[1] - weight_scale_bounds[0]
 )
 ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(bias_scale_bounds[1] + 1))
-xlab = np.linspace(weight_scale_min, weight_scale_max, num=int(weight_scale_bounds[1] + 1))
+xlab = np.linspace(
+    weight_scale_min, weight_scale_max, num=int(weight_scale_bounds[1] + 1)
+)
 indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
 indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
 

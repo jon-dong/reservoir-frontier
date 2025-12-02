@@ -92,17 +92,16 @@ def stability_test(
         model = Network(
             width=width,
             depth=depth,
+            mode=mode,
             bias_scale=None,
-            W_bias=W_bias,
             n_linops=n_linops,
             n_layers=n_layers,
             n_hist=n_hist,
             mags=mags,
             osr=osr,
             kernel_size=kernel_size,
-            residual_length=residual_length,
-            residual_interval=residual_interval,
-            mode=mode,
+            resid_span=residual_length,
+            resid_stride=residual_interval,
             device=device,
         )
         models.append(model)
@@ -195,8 +194,8 @@ def stability_test1d(
             mags=mags,
             osr=osr,
             kernel_size=kernel_size,
-            residual_length=residual_length,
-            residual_interval=residual_interval,
+            resid_span=residual_length,
+            resid_stride=residual_interval,
             mode=mode,
             device=device,
         )
