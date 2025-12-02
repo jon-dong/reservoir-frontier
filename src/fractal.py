@@ -39,7 +39,7 @@ def stability_test(
     bias_scale_bounds=[0, 2],
     n_linops=1,
     n_layers=None,
-    n_hist=20,
+    n_hist=1,
     mags=None,
     osr=None,
     kernel_size=None,
@@ -48,7 +48,7 @@ def stability_test(
     residual_interval=None,
     stability_mode=None,
     noise_level=None,
-    average=10,
+    average=1,
     device="cpu",
     seed=0,
     normalize=False,
@@ -85,6 +85,7 @@ def stability_test(
 
     # Initialize
     W_bias = torch.randn(width, width).to(device)
+    # W_bias = torch.tensor(1.0)
     #! somehow defining the two inputs before model.stability_test() will yield different transient behavior on the the frontier from defining them inside
     #! identical code, but different behavior, very confusing
     input1 = torch.randn(width).to(device)

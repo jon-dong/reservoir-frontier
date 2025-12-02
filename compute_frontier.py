@@ -1,6 +1,6 @@
+# %% imports
 import datetime
 import os
-from warnings import warn
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -9,72 +9,34 @@ import seaborn
 import torch
 
 from src.fractal import stability_test
+from src.utils import get_freer_gpu
 
-
-def get_freer_gpu(verbose=True):
-    """
-    Returns the GPU device with the most free memory.
-
-    Use in conjunction with ``torch.cuda.is_available()``.
-    Attempts to use ``nvidia-smi`` with ``bash``, if these don't exist then uses torch commands to get free memory.
-
-    :param bool verbose: print selected GPU index and memory
-    :return torch.device device: selected torch cuda device.
-    """
-    try:
-        os.system(
-            "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"
-            if os.name == "posix"
-            else 'bash -c "nvidia-smi -q -d Memory |grep -A5 GPU|grep Free >tmp"'
-        )
-        memory_available = [int(x.split()[2]) for x in open("tmp", "r").readlines()]
-        idx, mem = np.argmax(memory_available), np.max(memory_available)
-        device = torch.device(f"cuda:{idx}")
-
-    except Exception:
-        if torch.cuda.device_count() == 0:
-            warn("Couldn't find free GPU")
-            return torch.device("cuda")
-
-        else:
-            # Note this is slower and will return slightly different values to nvidia-smi
-            idx, mem = max(
-                (
-                    (d, torch.cuda.mem_get_info(d)[0] / 1048576)
-                    for d in range(torch.cuda.device_count())
-                ),
-                key=lambda x: x[1],
-            )
-            device = torch.device(f"cuda:{idx}")
-
-    if verbose:
-        print(f"Selected GPU {idx} with {mem} MiB free memory ")
-
-    return device
-
-
+# %% setup
 device = get_freer_gpu()
+dtype = torch.float32
 data_folder = "data/runs/"
 
-seed = 0
-width = 20  # state size
-depth = 1000  # input length for reservoir
-mode = "rand"  # in ['rand', 'struct', 'conv']
-additional = ""  # additional name for saving
+# %% parameters
+seed = 1
+width = 100  # state size
+depth = 1000  # number of layers
+mode = "struct"  # in ['rand', 'struct', 'conv']
+extra = ""  # additional name for saving
+save = False
 
 normalize = False  # layer normalization
 n_channels = 1  # multiple networks and average errors
 n_linops = depth  # number of linops to iterate on
-residual_length = None  # residual connection length
-residual_interval = None  # residual connection interval
+resid_span = None  # residual connection length
+resid_stride = None  # residual connection interval
 
 stability_mode = "independent"  # in ['sensitivity', 'independent']
 noise_level = 1e-5  # for sensitivity analysis
 resolution = 1000  # number of scales
 
 # struct
-n_layers = 1.5
-mags = ["unit"]  # in ['marchenko', 'unit']
+n_layers = 2
+mags = ["unit","unit"]  # in ['marchenko', 'unit']
 osr = 1.01  # oversampling ratio
 
 # conv
@@ -86,17 +48,15 @@ if mode == "rand":
     osr = None
     kernel_size = None
 
-save = True
-
 # Bounds for n_res = 100
-weight_scale_bounds = [0, 4]
-bias_scale_bounds = [0, 4]
+# weight_scale_bounds = [0, 4]
+# bias_scale_bounds = [0, 4]
 # weight_scale_bounds = [2.0, 2.4]
 # bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
-# weight_scale_bounds = [2.1875, 2.2125]
-# bias_scale_bounds = [2.0375, 2.0625]
+weight_scale_bounds = [2.1875, 2.2125]
+bias_scale_bounds = [2.0375, 2.0625]
 # weight_scale_bounds = [2.1625, 2.1875]
 # bias_scale_bounds = [2.0375, 2.0625]
 # weight_scale_bounds = [2.168, 2.193]
@@ -139,8 +99,9 @@ bias_scale_bounds = [0, 4]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{additional}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{extra}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
 
+# %% compute frontier
 metric_erf = stability_test(
     width=width,
     depth=depth,
@@ -149,8 +110,8 @@ metric_erf = stability_test(
     n_linops=n_linops,
     constant_input=False,
     normalize=normalize,
-    residual_length=residual_length,
-    residual_interval=residual_interval,
+    residual_length=resid_span,
+    residual_interval=resid_stride,
     n_layers=n_layers,
     mags=mags,
     osr=osr,
@@ -164,6 +125,7 @@ metric_erf = stability_test(
     seed=seed,
 )
 
+# %% plot and save
 plt.figure()
 seaborn.set_style("whitegrid")
 metric_erf = metric_erf.cpu().numpy()
