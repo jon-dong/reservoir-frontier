@@ -179,13 +179,6 @@ class Network(torch.nn.Module):
         n_W_scales = len(W_scales)
         n_b_scales = len(b_scales)
 
-        # bs = torch.einsum(
-        #     "ij,nj -> ni",
-        #     self.W_bias,
-        #     bs,
-        # )
-        # breakpoint()
-
         if x.ndim == 1:
             x = x.repeat(n_W_scales, n_b_scales, 1).to(self.device, self.dtype)
         outputs = torch.zeros(n_save_last, n_W_scales, n_b_scales, self.width).to(
