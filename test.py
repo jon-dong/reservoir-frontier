@@ -6,7 +6,7 @@ import seaborn
 import torch
 
 from src.fractal import generate_input
-from src.network import Network
+from src.network_naming import Network
 from src.utils import get_freer_gpu, plot_frontier
 
 # %%

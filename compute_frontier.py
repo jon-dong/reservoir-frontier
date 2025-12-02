@@ -8,7 +8,7 @@ import numpy as np
 import seaborn
 import torch
 
-from utils import stability_test
+from src.fractal import stability_test
 
 
 def get_freer_gpu(verbose=True):
@@ -34,7 +34,7 @@ def get_freer_gpu(verbose=True):
     except Exception:
         if torch.cuda.device_count() == 0:
             warn("Couldn't find free GPU")
-            return torch.device("cpu")
+            return torch.device("cuda")
 
         else:
             # Note this is slower and will return slightly different values to nvidia-smi
@@ -59,7 +59,7 @@ data_folder = "data/runs/"
 seed = 0
 width = 20  # state size
 depth = 1000  # input length for reservoir
-mode = "conv"  # in ['rand', 'struct', 'conv']
+mode = "rand"  # in ['rand', 'struct', 'conv']
 additional = ""  # additional name for saving
 
 normalize = False  # layer normalization
@@ -166,6 +166,7 @@ metric_erf = stability_test(
 
 plt.figure()
 seaborn.set_style("whitegrid")
+metric_erf = metric_erf.cpu().numpy()
 img = metric_erf.T
 threshold = 1e-5
 img[img < threshold] = threshold

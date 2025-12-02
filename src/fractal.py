@@ -107,27 +107,36 @@ def stability_test(
             mags=mags,
             osr=osr,
             kernel_size=kernel_size,
-            resid_span=residual_length,
-            resid_stride=residual_interval,
+            residual_length=residual_length,
+            residual_interval=residual_interval,
             mode=mode,
             device=device,
         )
         models.append(model)
 
-    for i_bias, bias_scale in tqdm(enumerate(bias_scales)):
-        rc_metric = torch.zeros(resolution, 20).to(device)
-        for i in range(n_channels):
-            models[i].bias_scale = bias_scale
-            rc_metric += models[i].stability_test(
-                input1=input1,
-                input2=input2,
-                biases=biases,
-                weight_scales=weight_scales,
-                mode=stability_mode,
-                noise_level=noise_level,
-                normalize=normalize,
-            )  # return size (resolution, n_hist)
-        rc_metric = rc_metric / n_channels  # normalize to have same error scale
-        final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
+    # for i_bias, bias_scale in tqdm(enumerate(bias_scales)):
+    #     rc_metric = torch.zeros(resolution, 20).to(device)
+    #     for i in range(n_channels):
+    #         models[i].bias_scale = bias_scale
+    #         rc_metric += models[i].stability_test(
+    #             input1=input1, input2=input2, biases=biases, weight_scales=weight_scales, mode=stability_mode, noise_level=noise_level, normalize=normalize
+    #         ) # return size (resolution, n_hist)
+    #     rc_metric = rc_metric / n_channels # normalize to have same error scale
+    #     final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
+    rc_metric = torch.zeros(n_hist, resolution, resolution).to(device)
+    for i in range(n_channels):
+        rc_metric += models[i].stability_test(
+            input1=input1,
+            input2=input2,
+            biases=biases,
+            weight_scales=weight_scales,
+            bias_scales=bias_scales,
+            mode=stability_mode,
+            noise_level=noise_level,
+            normalize=normalize,
+        )  # return size (n_hist, resolution, resolution)
+    rc_metric = rc_metric / n_channels  # normalize to have same error scale
+    # final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
+    final_metric = torch.mean(rc_metric[-average:], dim=0)
 
     return final_metric

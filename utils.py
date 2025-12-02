@@ -3,11 +3,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import porespy as ps
 import torch
-import matplotlib.pyplot as plt
-import porespy as ps
-import os
 from tqdm import tqdm
-from src.network import Network
+from src.network_naming import Network
 
 
 def erf_frontier(res_scale):
