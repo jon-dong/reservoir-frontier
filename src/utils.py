@@ -102,7 +102,12 @@ def plot_frontier(
     ax.set_ylabel("Bias variance")
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=300)
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        np.save(save_path + "metric_erf.npy", errs)
+        np.save(save_path + "xlab.npy", xlab)
+        np.save(save_path + "ylab.npy", ylab)
+        plt.savefig(save_path + "frontier.pdf")
     plt.show()
 
     return
