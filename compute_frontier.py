@@ -17,10 +17,10 @@ dtype = torch.float32
 data_folder = "data/runs/"
 
 # %% parameters
-seed = 1
+seed = 0
 width = 100  # state size
 depth = 1000  # number of layers
-mode = "struct"  # in ['rand', 'struct', 'conv']
+mode = "rand"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
 save = False
 
@@ -36,7 +36,7 @@ resolution = 1000  # number of scales
 
 # struct
 n_layers = 2
-mags = ["unit","unit"]  # in ['marchenko', 'unit']
+mags = ["unit", "unit"]  # in ['marchenko', 'unit']
 osr = 1.01  # oversampling ratio
 
 # conv
@@ -121,6 +121,7 @@ metric_erf = stability_test(
     resolution=resolution,
     weight_scale_bounds=weight_scale_bounds,
     bias_scale_bounds=bias_scale_bounds,
+    dtype=dtype,
     device=device,
     seed=seed,
 )

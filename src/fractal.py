@@ -50,6 +50,7 @@ def stability_test(
     noise_level=None,
     average=1,
     device="cpu",
+    dtype=torch.float32,
     seed=0,
     normalize=False,
 ):
@@ -94,23 +95,25 @@ def stability_test(
     input2 = input2 / torch.norm(input2)
 
     models = []
+    config = {
+        "n_layers": n_layers,
+        "mags": mags,
+        "osr": osr,
+        "kernel_size": kernel_size,
+    }
 
     # make sure to use the same instance
     for _ in range(n_channels):
         model = Network(
             width=width,
             depth=depth,
-            bias_scale=None,
             W_bias=W_bias,
-            n_linops=n_linops,
-            n_layers=n_layers,
-            n_hist=n_hist,
-            mags=mags,
-            osr=osr,
-            kernel_size=kernel_size,
-            residual_length=residual_length,
-            residual_interval=residual_interval,
             mode=mode,
+            n_linops=n_linops,
+            resid_span=residual_length,
+            resid_stride=residual_interval,
+            config=config,
+            dtype=dtype,
             device=device,
         )
         models.append(model)
@@ -127,14 +130,15 @@ def stability_test(
     rc_metric = torch.zeros(n_hist, resolution, resolution).to(device)
     for i in range(n_channels):
         rc_metric += models[i].stability_test(
-            input1=input1,
-            input2=input2,
-            biases=biases,
-            weight_scales=weight_scales,
-            bias_scales=bias_scales,
+            x1=input1,
+            x2=input2,
+            bs=biases,
+            W_scales=weight_scales,
+            b_scales=bias_scales,
             mode=stability_mode,
             noise_level=noise_level,
             normalize=normalize,
+            n_save_last=n_hist,
         )  # return size (n_hist, resolution, resolution)
     rc_metric = rc_metric / n_channels  # normalize to have same error scale
     # final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
