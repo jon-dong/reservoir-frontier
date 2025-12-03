@@ -10,12 +10,10 @@ class Network(torch.nn.Module):
         self,
         width,
         depth,
-        W_bias,
         mode: str = "rand",
-        n_linops: int = 1,
-        resid_span: int | None = None,  # length of the residual connection
-        resid_stride: int | None = None,  # distance between two residual connections
-        config: dict | None = None,
+        W_bias=None,
+        config_linop: dict | None = None,
+        config_resid: dict | None = None,
         dtype=torch.float32,
         device="cpu",
     ):
@@ -30,15 +28,16 @@ class Network(torch.nn.Module):
         self.activation = torch.erf
 
         self.mode = mode
+        self.n_linops = config_linop.get("n_linops", 1)
         if mode == "rand":
             self.linops = [
                 linop.Random(size=width, dtype=dtype, device=device)
-                for _ in range(n_linops)
+                for _ in range(self.n_linops)
             ]
         elif mode == "struct":
-            n_layers = config.get("n_layers", 2)
-            mags = config.get("mags", ["unit", "unit"])
-            osr = config.get("osr", 1.0)
+            n_layers = config_linop.get("n_layers", 2)
+            mags = config_linop.get("mags", ["unit", "unit"])
+            osr = config_linop.get("osr", 1.0)
             assert len(mags) == n_layers or n_layers - len(mags) == 0.5, (
                 "Number of mags must be equal to n_layers or n_layers - len(mags) == 0.5"
             )
@@ -51,10 +50,10 @@ class Network(torch.nn.Module):
                     dtype=dtype,
                     device=device,
                 )
-                for _ in range(n_linops)
+                for _ in range(self.n_linops)
             ]
         elif mode == "conv":
-            kernel_size = config.get("kernel_size", width)
+            kernel_size = config_linop.get("kernel_size", width)
             self.linops = [
                 linop.RandomConvolution(
                     shape=(width,),
@@ -62,13 +61,12 @@ class Network(torch.nn.Module):
                     dtype=dtype,
                     device=device,
                 )
-                for _ in range(n_linops)
+                for _ in range(self.n_linops)
             ]
-        self.n_linops = n_linops
         self.counter = 0
 
-        self.resid_span = resid_span
-        self.resid_stride = resid_stride
+        self.resid_span = config_resid.get("resid_span", None)
+        self.resid_stride = config_resid.get("resid_stride", None)
         self.layer_outputs = [None] * (self.depth + 1)
 
     def iter(self, x, b, W_scales=None, b_scales=None):
@@ -165,60 +163,3 @@ class Network(torch.nn.Module):
             if i > (self.depth - n_save_last):
                 outputs[i - 1 - self.depth + n_save_last] = x
         return outputs
-
-    def stability_test(
-        self,
-        x1=None,
-        x2=None,
-        bs=None,
-        W_scales=None,
-        b_scales=None,
-        mode="independent",
-        noise_level=0.01,
-        normalize=False,
-        n_save_last=1,
-    ):
-        """
-        Stability test on the same input and different reservoir scales
-
-        Follows the distance between the reservoir states through time, whether they converge to the same trajectory
-
-        Returns:
-        dist: shape (n_scales, n_history)
-        """
-        bs = bs.to(self.device, self.dtype)
-
-        if mode == "independent":
-            if x1 is None and x2 is None:
-                x1 = torch.randn(self.width).to(self.device, self.dtype)
-                x1 = x1 / torch.norm(x1)
-                x2 = torch.randn(self.width).to(self.device, self.dtype)
-                x2 = x2 / torch.norm(x2)
-        elif mode == "sensitivity":
-            x1 = torch.randn(self.width).to(self.device, self.dtype)
-            epsilon = noise_level * torch.randn(self.width).to(self.device, self.dtype)
-            x2 = x1 + epsilon
-
-            x1 = x1 / torch.norm(x1)
-            x2 = x2 / torch.norm(x2)
-
-        outputs1 = self.forward(
-            x1,
-            bs,
-            W_scales=W_scales,
-            b_scales=b_scales,
-            normalize=normalize,
-            n_save_last=n_save_last,
-        )
-
-        self.counter = 0
-        outputs2 = self.forward(
-            x2,
-            bs,
-            W_scales=W_scales,
-            b_scales=b_scales,
-            normalize=normalize,
-            n_save_last=n_save_last,
-        )
-
-        return torch.sum((outputs1 - outputs2) ** 2, dim=-1)

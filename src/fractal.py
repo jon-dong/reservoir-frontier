@@ -33,115 +33,134 @@ def stability_test(
     width,
     depth,
     mode,
+    W_scale_bounds=[0, 4],
+    b_scale_bounds=[0, 4],
     resolution=None,
-    constant_input=False,
-    weight_scale_bounds=[0, 3],
-    bias_scale_bounds=[0, 2],
-    n_linops=1,
-    n_layers=None,
-    n_hist=1,
-    mags=None,
-    osr=None,
-    kernel_size=None,
-    n_channels=None,
-    residual_length=None,
-    residual_interval=None,
+    config_linop=None,
+    config_resid=None,
+    constant_bias=False,
+    normalize=False,
     stability_mode=None,
     noise_level=None,
+    n_repeats=1,
+    n_save_last=1,
     average=1,
     device="cpu",
     dtype=torch.float32,
     seed=0,
-    normalize=False,
 ):
-    """
-    Test the stability of the reservoir for different input and reservoir scales.
-    :param res_size: number of units in the reservoir
-    :param input_size: dimension of the input
-    :param input_len: length of the input sequence
-    :param resolution: number of points in the grid
-    :param constant_input: if True, the input is constant
-    :param res_scale_bounds: bounds of the reservoir scale
-    :param input_scale_bounds: bounds of the input scale
-    :param device: device to run the test
-    :return: final_metric: stability metric for each pair of input and reservoir scales
-    """
     torch.manual_seed(seed)
-    if not constant_input:
-        biases = torch.randn(depth, width).to(device)
-        for i in range(depth):  # normalize input at each time step
-            biases[i, :] = biases[i, :] / torch.norm(biases[i, :])
+    if not constant_bias:
+        bs = torch.randn(depth, width).to(device)
+        for i in range(depth):  # normalize at each time step
+            bs[i, :] = bs[i, :] / torch.norm(bs[i, :])
     else:
-        biases = torch.randn(width).to(device)
-        biases = biases / torch.norm(biases)
-        biases = biases.repeat(depth, 1)
+        bs = torch.randn(width).to(device)
+        bs = bs / torch.norm(bs)
+        bs = bs.repeat(depth, 1)
 
-    weight_scales = np.linspace(
-        weight_scale_bounds[0], weight_scale_bounds[1], num=resolution
-    )
-    bias_scales = np.linspace(
-        bias_scale_bounds[0], bias_scale_bounds[1], num=resolution
-    )
-    final_metric = torch.zeros(resolution, resolution)
+    W_scales = np.linspace(W_scale_bounds[0], W_scale_bounds[1], num=resolution)
+    b_scales = np.linspace(b_scale_bounds[0], b_scale_bounds[1], num=resolution)
+    errs = torch.zeros(resolution, resolution)
 
     # Initialize
     W_bias = torch.randn(width, width).to(device)
     # W_bias = torch.tensor(1.0)
-    #! somehow defining the two inputs before model.stability_test() will yield different transient behavior on the the frontier from defining them inside
-    #! identical code, but different behavior, very confusing
+    # * somehow defining the two inputs before model.stability_test() will yield different transient behavior on the the frontier from defining them inside
     input1 = torch.randn(width).to(device)
     input1 = input1 / torch.norm(input1)
     input2 = torch.randn(width).to(device)
     input2 = input2 / torch.norm(input2)
 
     models = []
-    config = {
-        "n_layers": n_layers,
-        "mags": mags,
-        "osr": osr,
-        "kernel_size": kernel_size,
-    }
 
     # make sure to use the same instance
-    for _ in range(n_channels):
+    for _ in range(n_repeats):
         model = Network(
             width=width,
             depth=depth,
-            W_bias=W_bias,
             mode=mode,
-            n_linops=n_linops,
-            resid_span=residual_length,
-            resid_stride=residual_interval,
-            config=config,
+            W_bias=W_bias,
+            config_linop=config_linop,
+            config_resid=config_resid,
             dtype=dtype,
             device=device,
         )
         models.append(model)
 
-    # for i_bias, bias_scale in tqdm(enumerate(bias_scales)):
-    #     rc_metric = torch.zeros(resolution, 20).to(device)
-    #     for i in range(n_channels):
-    #         models[i].bias_scale = bias_scale
-    #         rc_metric += models[i].stability_test(
-    #             input1=input1, input2=input2, biases=biases, weight_scales=weight_scales, mode=stability_mode, noise_level=noise_level, normalize=normalize
-    #         ) # return size (resolution, n_hist)
-    #     rc_metric = rc_metric / n_channels # normalize to have same error scale
-    #     final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
-    rc_metric = torch.zeros(n_hist, resolution, resolution).to(device)
-    for i in range(n_channels):
-        rc_metric += models[i].stability_test(
+    rc_metric = torch.zeros(n_save_last, resolution, resolution).to(device)
+    for i in range(n_repeats):
+        rc_metric += stability_test_net(
+            models[i],
             x1=input1,
             x2=input2,
-            bs=biases,
-            W_scales=weight_scales,
-            b_scales=bias_scales,
+            bs=bs,
+            W_scales=W_scales,
+            b_scales=b_scales,
             mode=stability_mode,
             noise_level=noise_level,
             normalize=normalize,
-            n_save_last=n_hist,
+            n_save_last=n_save_last,
         )  # return size (n_hist, resolution, resolution)
-    rc_metric = rc_metric / n_channels  # normalize to have same error scale
-    # final_metric[:, i_bias] = torch.mean(rc_metric[:, -average:], dim=1)
-    final_metric = torch.mean(rc_metric[-average:], dim=0)
+    rc_metric = rc_metric / n_repeats  # normalize
+    errs = torch.mean(rc_metric[-average:], dim=0)
 
-    return final_metric
+    return errs
+
+
+def stability_test_net(
+    net,
+    x1=None,
+    x2=None,
+    bs=None,
+    W_scales=None,
+    b_scales=None,
+    mode="independent",
+    noise_level=0.01,
+    normalize=False,
+    n_save_last=1,
+):
+    """
+    Stability test on the same input and different reservoir scales
+
+    Follows the distance between the reservoir states through time, whether they converge to the same trajectory
+
+    Returns:
+    dist: shape (n_scales, n_history)
+    """
+    bs = bs.to(net.device, net.dtype)
+
+    if mode == "independent":
+        if x1 is None and x2 is None:
+            x1 = torch.randn(net.width).to(net.device, net.dtype)
+            x1 = x1 / torch.norm(x1)
+            x2 = torch.randn(net.width).to(net.device, net.dtype)
+            x2 = x2 / torch.norm(x2)
+    elif mode == "sensitivity":
+        x1 = torch.randn(net.width).to(net.device, net.dtype)
+        epsilon = noise_level * torch.randn(net.width).to(net.device, net.dtype)
+        x2 = x1 + epsilon
+
+        x1 = x1 / torch.norm(x1)
+        x2 = x2 / torch.norm(x2)
+
+    outputs1 = net.forward(
+        x1,
+        bs,
+        W_scales=W_scales,
+        b_scales=b_scales,
+        normalize=normalize,
+        n_save_last=n_save_last,
+    )
+
+    net.counter = 0
+    outputs2 = net.forward(
+        x2,
+        bs,
+        W_scales=W_scales,
+        b_scales=b_scales,
+        normalize=normalize,
+        n_save_last=n_save_last,
+    )
+
+    return torch.sum((outputs1 - outputs2) ** 2, dim=-1)

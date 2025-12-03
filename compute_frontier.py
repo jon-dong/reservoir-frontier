@@ -9,7 +9,7 @@ import seaborn
 import torch
 
 from src.fractal import stability_test
-from src.utils import get_freer_gpu
+from src.utils import get_freer_gpu, plot_frontier
 
 # %% setup
 device = get_freer_gpu()
@@ -17,15 +17,14 @@ dtype = torch.float32
 data_folder = "data/runs/"
 
 # %% parameters
-seed = 0
+seed = 1
 width = 100  # state size
 depth = 1000  # number of layers
-mode = "rand"  # in ['rand', 'struct', 'conv']
+mode = "struct"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
 save = False
 
 normalize = False  # layer normalization
-n_channels = 1  # multiple networks and average errors
 n_linops = depth  # number of linops to iterate on
 resid_span = None  # residual connection length
 resid_stride = None  # residual connection interval
@@ -42,6 +41,18 @@ osr = 1.01  # oversampling ratio
 # conv
 kernel_size = width
 
+config_linop = {
+    "n_linops": n_linops,
+    "n_layers": n_layers,
+    "mags": mags,
+    "osr": osr,
+    "kernel_size": kernel_size,
+}
+config_resid = {
+    "resid_span": resid_span,
+    "resid_stride": resid_stride,
+}
+
 if mode == "rand":
     n_layers = None
     mags = None
@@ -55,13 +66,12 @@ if mode == "rand":
 # bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
 # bias_scale_bounds = [2.0, 2.1]
-weight_scale_bounds = [2.1875, 2.2125]
-bias_scale_bounds = [2.0375, 2.0625]
+W_scale_bounds = [2.1875, 2.2125]
+b_scale_bounds = [2.0375, 2.0625]
 # weight_scale_bounds = [2.1625, 2.1875]
 # bias_scale_bounds = [2.0375, 2.0625]
 # weight_scale_bounds = [2.168, 2.193]
 # bias_scale_bounds = [2.0375, 2.0625]
-
 # weight_scale_bounds = [2.3, 2.5]
 # bias_scale_bounds = [2.3, 2.5]
 # weight_scale_bounds = [1.8, 2.2]
@@ -86,10 +96,8 @@ bias_scale_bounds = [2.0375, 2.0625]
 # bias_scale_bounds = [1.137, 1.162]
 # weight_scale_bounds = [1.785, 1.795]
 # bias_scale_bounds = [1.145, 1.155]
-
 # weight_scale_bounds = [1.70, 1.75]
 # bias_scale_bounds = [0.25, 0.30]
-
 # Bounds for n_res = 30
 # weight_scale_bounds = [0, 2]
 # bias_scale_bounds = [0, 2]
@@ -99,89 +107,32 @@ bias_scale_bounds = [2.0375, 2.0625]
 # bias_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{extra}_seed{seed}_weight{weight_scale_bounds}_bias{bias_scale_bounds}/"
+save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{extra}_seed{seed}_weight{W_scale_bounds}_bias{b_scale_bounds}/"
 
 # %% compute frontier
-metric_erf = stability_test(
+errs = stability_test(
     width=width,
     depth=depth,
     mode=mode,
-    n_channels=n_channels,
-    n_linops=n_linops,
-    constant_input=False,
+    W_scale_bounds=W_scale_bounds,
+    b_scale_bounds=b_scale_bounds,
+    resolution=resolution,
+    config_linop=config_linop,
+    config_resid=config_resid,
+    constant_bias=False,
     normalize=normalize,
-    residual_length=resid_span,
-    residual_interval=resid_stride,
-    n_layers=n_layers,
-    mags=mags,
-    osr=osr,
-    kernel_size=kernel_size,
     stability_mode=stability_mode,
     noise_level=noise_level,
-    resolution=resolution,
-    weight_scale_bounds=weight_scale_bounds,
-    bias_scale_bounds=bias_scale_bounds,
     dtype=dtype,
     device=device,
     seed=seed,
 )
 
 # %% plot and save
-plt.figure()
-seaborn.set_style("whitegrid")
-metric_erf = metric_erf.cpu().numpy()
-img = metric_erf.T
-threshold = 1e-5
-img[img < threshold] = threshold
-bias_min = 0
-bias_max = 1
-weight_min = 0
-weight_max = 1
-plt.imshow(
-    img[
-        int(bias_min * resolution) : int(bias_max * resolution),
-        int(weight_min * resolution) : int(weight_max * resolution),
-    ],
-    norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
-)  #
-
-ax = plt.gca()
-plt.grid(False)
-plt.clim(threshold, 1)
-plt.colorbar()
-
-bias_scale_min = bias_scale_bounds[0] + bias_min * (
-    bias_scale_bounds[1] - bias_scale_bounds[0]
+plot_frontier(
+    errs.cpu().numpy(),
+    W_scale_bounds,
+    b_scale_bounds,
+    resolution,
+    save_path=None if not save else data_folder + save_folder,
 )
-bias_scale_max = bias_scale_bounds[0] + bias_max * (
-    bias_scale_bounds[1] - bias_scale_bounds[0]
-)
-weight_scale_min = weight_scale_bounds[0] + weight_min * (
-    weight_scale_bounds[1] - weight_scale_bounds[0]
-)
-weight_scale_max = weight_scale_bounds[0] + weight_max * (
-    weight_scale_bounds[1] - weight_scale_bounds[0]
-)
-ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(bias_scale_bounds[1] + 1))
-xlab = np.linspace(
-    weight_scale_min, weight_scale_max, num=int(weight_scale_bounds[1] + 1)
-)
-indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
-indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
-
-ax.set_xticks(indXx)
-ax.set_xticklabels(xlab)
-ax.set_yticks(indXy)
-ax.set_yticklabels(ylab)
-ax.set_xlabel("Weight variance")
-ax.set_ylabel("Bias variance")
-
-if save is True:
-    if not os.path.exists(data_folder + save_folder):
-        os.makedirs(data_folder + save_folder)
-    np.save(data_folder + save_folder + "metric_erf.npy", metric_erf)
-    np.save(data_folder + save_folder + "xlab.npy", xlab)
-    np.save(data_folder + save_folder + "ylab.npy", ylab)
-    plt.savefig(data_folder + save_folder + "frontier.pdf")
-
-plt.show()
