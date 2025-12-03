@@ -252,7 +252,7 @@ def stability_test(
     noise_level=None,
     n_repeats=1,
     n_save_last=1,
-    average=1,
+    # average=1,
     device="cpu",
     dtype=torch.float32,
     seed=0,
@@ -267,14 +267,12 @@ def stability_test(
         bs = bs / torch.norm(bs)
         bs = bs.repeat(depth, 1)
 
-    W_scales = np.linspace(W_scale_bounds[0], W_scale_bounds[1], num=resolution)
-    b_scales = np.linspace(b_scale_bounds[0], b_scale_bounds[1], num=resolution)
-    errs = torch.zeros(resolution, resolution)
+    W_scales = np.linspace(W_scale_bounds[0], W_scale_bounds[1], num=resolution[0])
+    b_scales = np.linspace(b_scale_bounds[0], b_scale_bounds[1], num=resolution[1])
 
     # Initialize
     W_bias = torch.randn(width, width).to(device)
     # W_bias = torch.tensor(1.0)
-    # * somehow defining the two inputs before model.stability_test() will yield different transient behavior on the the frontier from defining them inside
     input1 = torch.randn(width).to(device)
     input1 = input1 / torch.norm(input1)
     input2 = torch.randn(width).to(device)
@@ -296,9 +294,9 @@ def stability_test(
         )
         models.append(model)
 
-    rc_metric = torch.zeros(n_save_last, resolution, resolution).to(device)
+    errs = torch.zeros(n_save_last, *resolution).to(device)
     for i in range(n_repeats):
-        rc_metric += stability_test_net(
+        errs += stability_test_net(
             models[i],
             x1=input1,
             x2=input2,
@@ -309,8 +307,8 @@ def stability_test(
             noise_level=noise_level,
             normalize=normalize,
             n_save_last=n_save_last,
-        )  # return size (n_hist, resolution, resolution)
-    rc_metric = rc_metric / n_repeats  # normalize
-    errs = torch.mean(rc_metric[-average:], dim=0)
+        )  # return size (n_save_last, *resolution)
+    errs = errs / n_repeats  # normalize
+    # errs = torch.mean(errs[-average:], dim=0)
 
     return errs

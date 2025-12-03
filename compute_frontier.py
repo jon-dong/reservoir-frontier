@@ -20,7 +20,7 @@ data_folder = "data/runs/"
 seed = 1
 width = 100  # state size
 depth = 1000  # number of layers
-mode = "struct"  # in ['rand', 'struct', 'conv']
+mode = "conv"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
 save = False
 
@@ -31,7 +31,6 @@ resid_stride = None  # residual connection interval
 
 stability_mode = "independent"  # in ['sensitivity', 'independent']
 noise_level = 1e-5  # for sensitivity analysis
-resolution = 1000  # number of scales
 
 # struct
 n_layers = 2
@@ -59,9 +58,14 @@ if mode == "rand":
     osr = None
     kernel_size = None
 
+resolution = [1000, 1000]  # number of weight and bias scales
+n_save_last = 1
 # Bounds for n_res = 100
-# weight_scale_bounds = [0, 4]
-# bias_scale_bounds = [0, 4]
+# W_scale_bounds = [0, 4]
+# b_scale_bounds = [0, 4]
+# * for convergence plot
+# W_scale_bounds = [1.0, 2.5]
+# b_scale_bounds = [1.0, 1.0]
 # weight_scale_bounds = [2.0, 2.4]
 # bias_scale_bounds = [1.8, 2.2]
 # weight_scale_bounds = [2.15, 2.25]
@@ -123,16 +127,26 @@ errs = stability_test(
     normalize=normalize,
     stability_mode=stability_mode,
     noise_level=noise_level,
+    n_save_last=n_save_last,
     dtype=dtype,
     device=device,
     seed=seed,
-)
+)  # returns shape (n_save_last, n_W_scales, n_b_scales)
 
-# %% plot and save
+# %%
+errs.shape
+# %% plot frontier and save
+err = errs[-1]
 plot_frontier(
-    errs.cpu().numpy(),
+    err.cpu().numpy(),
     W_scale_bounds,
     b_scale_bounds,
     resolution,
     save_path=None if not save else data_folder + save_folder,
 )
+
+# %% plot convergence
+# errs should have shape (n_save_last, n_W_scales, 1)
+# (only one bias scale)
+plt.plot(errs[:, :, 0].cpu().numpy(), "-")
+plt.yscale("log")

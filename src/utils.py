@@ -62,14 +62,14 @@ def plot_frontier(
     img = errs.T
     threshold = 1e-5
     img[img < threshold] = threshold
-    bias_min = 0
-    bias_max = 1
-    weight_min = 0
-    weight_max = 1
+    b_min = 0
+    b_max = 1
+    W_min = 0
+    W_max = 1
     plt.imshow(
         img[
-            int(bias_min * resolution) : int(bias_max * resolution),
-            int(weight_min * resolution) : int(weight_max * resolution),
+            int(b_min * resolution[1]) : int(b_max * resolution[1]),
+            int(W_min * resolution[0]) : int(W_max * resolution[0]),
         ],
         norm=matplotlib.colors.LogNorm(vmin=1e-10, vmax=1),
     )  #
@@ -79,20 +79,14 @@ def plot_frontier(
     plt.clim(threshold, 1)
     plt.colorbar()
 
-    bias_scale_min = b_scale_range[0] + bias_min * (b_scale_range[1] - b_scale_range[0])
-    bias_scale_max = b_scale_range[0] + bias_max * (b_scale_range[1] - b_scale_range[0])
-    weight_scale_min = W_scale_range[0] + weight_min * (
-        W_scale_range[1] - W_scale_range[0]
-    )
-    weight_scale_max = W_scale_range[0] + weight_max * (
-        W_scale_range[1] - W_scale_range[0]
-    )
-    ylab = np.linspace(bias_scale_min, bias_scale_max, num=int(b_scale_range[1] + 1))
-    xlab = np.linspace(
-        weight_scale_min, weight_scale_max, num=int(W_scale_range[1] + 1)
-    )
-    indXx = np.linspace(0, resolution - 1, num=xlab.shape[0]).astype(int)
-    indXy = np.linspace(0, resolution - 1, num=ylab.shape[0]).astype(int)
+    b_scale_min = b_scale_range[0] + b_min * (b_scale_range[1] - b_scale_range[0])
+    b_scale_max = b_scale_range[0] + b_max * (b_scale_range[1] - b_scale_range[0])
+    W_scale_min = W_scale_range[0] + W_min * (W_scale_range[1] - W_scale_range[0])
+    W_scale_max = W_scale_range[0] + W_max * (W_scale_range[1] - W_scale_range[0])
+    ylab = np.linspace(b_scale_min, b_scale_max, num=int(b_scale_range[1] + 1))
+    xlab = np.linspace(W_scale_min, W_scale_max, num=int(W_scale_range[1] + 1))
+    indXx = np.linspace(0, resolution[0] - 1, num=xlab.shape[0]).astype(int)
+    indXy = np.linspace(0, resolution[1] - 1, num=ylab.shape[0]).astype(int)
 
     ax.set_xticks(indXx)
     ax.set_xticklabels(xlab)
