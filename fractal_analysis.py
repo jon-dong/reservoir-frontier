@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import porespy as ps
 import os
-from utils_fractals import *
+from src.fractal import *
 from matplotlib.gridspec import GridSpec
 import matplotlib
 
