@@ -253,6 +253,7 @@ def stability_test(
     n_repeats=1,
     n_save_last=1,
     # average=1,
+    chunks=[1, 1],
     device="cpu",
     dtype=torch.float32,
     seed=0,
@@ -267,9 +268,14 @@ def stability_test(
         bs = bs / torch.norm(bs)
         bs = bs.repeat(depth, 1)
 
-    W_scales = np.linspace(W_scale_bounds[0], W_scale_bounds[1], num=resolution[0])
-    b_scales = np.linspace(b_scale_bounds[0], b_scale_bounds[1], num=resolution[1])
-
+    n_W_scales = resolution[0]
+    n_b_scales = resolution[1]
+    W_scales = np.linspace(W_scale_bounds[0], W_scale_bounds[1], num=n_W_scales)
+    b_scales = np.linspace(b_scale_bounds[0], b_scale_bounds[1], num=n_b_scales)
+    n_W_chunks = chunks[0]
+    n_b_chunks = chunks[1]
+    W_scales_chunked = torch.chunk(torch.tensor(W_scales), n_W_chunks)
+    b_scales_chunked = torch.chunk(torch.tensor(b_scales), n_b_chunks)
     # Initialize
     W_bias = torch.randn(width, width).to(device)
     # W_bias = torch.tensor(1.0)
@@ -294,20 +300,26 @@ def stability_test(
         )
         models.append(model)
 
-    errs = torch.zeros(n_save_last, *resolution).to(device)
+    errs = torch.zeros(n_save_last, n_W_scales, n_b_scales).to(device)
     for i in range(n_repeats):
-        errs += stability_test_net(
-            models[i],
-            x1=input1,
-            x2=input2,
-            bs=bs,
-            W_scales=W_scales,
-            b_scales=b_scales,
-            mode=stability_mode,
-            noise_level=noise_level,
-            normalize=normalize,
-            n_save_last=n_save_last,
-        )  # return size (n_save_last, *resolution)
+        for W_idx, W_scales in enumerate(W_scales_chunked):
+            for b_idx, b_scales in enumerate(b_scales_chunked):
+                W_start = W_idx * n_W_scales // n_W_chunks
+                W_end = W_start + n_W_scales // n_W_chunks
+                b_start = b_idx * n_b_scales // n_b_chunks
+                b_end = b_start + n_b_scales // n_b_chunks
+                errs[:, W_start:W_end, b_start:b_end] += stability_test_net(
+                    models[i],
+                    x1=input1,
+                    x2=input2,
+                    bs=bs,
+                    W_scales=W_scales,
+                    b_scales=b_scales,
+                    mode=stability_mode,
+                    noise_level=noise_level,
+                    normalize=normalize,
+                    n_save_last=n_save_last,
+                )  # return size (n_save_last, *resolution)
     errs = errs / n_repeats  # normalize
     # errs = torch.mean(errs[-average:], dim=0)
 

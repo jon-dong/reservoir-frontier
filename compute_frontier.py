@@ -20,7 +20,7 @@ data_folder = "data/runs/"
 seed = 1
 width = 100  # state size
 depth = 1000  # number of layers
-mode = "conv"  # in ['rand', 'struct', 'conv']
+mode = "struct"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
 save = False
 
@@ -38,7 +38,7 @@ mags = ["unit", "unit"]  # in ['marchenko', 'unit']
 osr = 1.01  # oversampling ratio
 
 # conv
-kernel_size = width
+kernel_size = 100
 
 config_linop = {
     "n_linops": n_linops,
@@ -59,6 +59,7 @@ if mode == "rand":
     kernel_size = None
 
 resolution = [1000, 1000]  # number of weight and bias scales
+chunks = [1, 1]
 n_save_last = 1
 # Bounds for n_res = 100
 # W_scale_bounds = [0, 4]
@@ -128,6 +129,7 @@ errs = stability_test(
     stability_mode=stability_mode,
     noise_level=noise_level,
     n_save_last=n_save_last,
+    chunks=chunks,
     dtype=dtype,
     device=device,
     seed=seed,
