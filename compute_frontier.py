@@ -8,7 +8,7 @@ import numpy as np
 import seaborn
 import torch
 
-from src.fractal import stability_test
+from src.propagation import propagation_test
 from src.utils import get_freer_gpu, plot_frontier
 
 # %% setup
@@ -22,7 +22,7 @@ width = 100  # state size
 depth = 1000  # number of layers
 mode = "struct"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
-save = False
+save = True
 
 normalize = False  # layer normalization
 n_linops = depth  # number of linops to iterate on
@@ -64,58 +64,59 @@ n_save_last = 1
 # Bounds for n_res = 100
 # W_scale_bounds = [0, 4]
 # b_scale_bounds = [0, 4]
-# * for convergence plot
-# W_scale_bounds = [1.0, 2.5]
-# b_scale_bounds = [1.0, 1.0]
-# weight_scale_bounds = [2.0, 2.4]
-# bias_scale_bounds = [1.8, 2.2]
-# weight_scale_bounds = [2.15, 2.25]
-# bias_scale_bounds = [2.0, 2.1]
-W_scale_bounds = [2.1875, 2.2125]
+# W_scale_bounds = [2.0, 2.4]
+# b_scale_bounds = [1.8, 2.2]
+# W_scale_bounds = [2.15, 2.25]
+# b_scale_bounds = [2.0, 2.1]
+
+# W_scale_bounds = [2.1875, 2.2125]
+# b_scale_bounds = [2.0375, 2.0625]
+# W_scale_bounds = [2.1625, 2.1875]
+# b_scale_bounds = [2.0375, 2.0625]
+W_scale_bounds = [2.1725, 2.1975]
 b_scale_bounds = [2.0375, 2.0625]
-# weight_scale_bounds = [2.1625, 2.1875]
-# bias_scale_bounds = [2.0375, 2.0625]
-# weight_scale_bounds = [2.168, 2.193]
-# bias_scale_bounds = [2.0375, 2.0625]
-# weight_scale_bounds = [2.3, 2.5]
-# bias_scale_bounds = [2.3, 2.5]
-# weight_scale_bounds = [1.8, 2.2]
-# bias_scale_bounds = [2.0, 2.4]
-# weight_scale_bounds = [3, 4]
-# bias_scale_bounds = [3, 4]
-# weight_scale_bounds = [3.75, 4.0]
-# bias_scale_bounds = [3.25, 3.5]
-# weight_scale_bounds = [3.75, 3.8]
-# bias_scale_bounds = [3.25, 3.3]
-# weight_scale_bounds = [1.51, 1.53]
-# bias_scale_bounds = [0.96, 0.98]
-# weight_scale_bounds = [1.4, 1.6]
-# bias_scale_bounds = [0.6, 0.8]
-# weight_scale_bounds = [1.5, 1.55]
-# bias_scale_bounds = [0.65, 0.7]
-# weight_scale_bounds = [1.62, 1.92]
-# bias_scale_bounds = [1, 1.3]
-# weight_scale_bounds = [1.73, 1.83]
-# bias_scale_bounds = [1.1, 1.2]
-# weight_scale_bounds = [1.777, 1.802]
-# bias_scale_bounds = [1.137, 1.162]
-# weight_scale_bounds = [1.785, 1.795]
-# bias_scale_bounds = [1.145, 1.155]
-# weight_scale_bounds = [1.70, 1.75]
-# bias_scale_bounds = [0.25, 0.30]
+# W_scale_bounds = [2.168, 2.193]
+# b_scale_bounds = [2.0375, 2.0625]
+
+# W_scale_bounds = [2.3, 2.5]
+# b_scale_bounds = [2.3, 2.5]
+# W_scale_bounds = [1.8, 2.2]
+# b_scale_bounds = [2.0, 2.4]
+# W_scale_bounds = [3, 4]
+# b_scale_bounds = [3, 4]
+# W_scale_bounds = [3.75, 4.0]
+# b_scale_bounds = [3.25, 3.5]
+# W_scale_bounds = [3.75, 3.8]
+# b_scale_bounds = [3.25, 3.3]
+# W_scale_bounds = [1.51, 1.53]
+# b_scale_bounds = [0.96, 0.98]
+# W_scale_bounds = [1.4, 1.6]
+# b_scale_bounds = [0.6, 0.8]
+# W_scale_bounds = [1.5, 1.55]
+# b_scale_bounds = [0.65, 0.7]
+# W_scale_bounds = [1.62, 1.92]
+# b_scale_bounds = [1, 1.3]
+# W_scale_bounds = [1.73, 1.83]
+# b_scale_bounds = [1.1, 1.2]
+# W_scale_bounds = [1.777, 1.802]
+# b_scale_bounds = [1.137, 1.162]
+# W_scale_bounds = [1.785, 1.795]
+# b_scale_bounds = [1.145, 1.155]
+# W_scale_bounds = [1.70, 1.75]
+# b_scale_bounds = [0.25, 0.30]
 # Bounds for n_res = 30
-# weight_scale_bounds = [0, 2]
-# bias_scale_bounds = [0, 2]
-# weight_scale_bounds = [1.75, 2.05]
-# bias_scale_bounds = [1, 1.3]
-# weight_scale_bounds = [1.87, 1.97]
-# bias_scale_bounds = [1.1, 1.2]
+# W_scale_bounds = [0, 2]
+# b_scale_bounds = [0, 2]
+# W_scale_bounds = [1.75, 2.05]
+# b_scale_bounds = [1, 1.3]
+# W_scale_bounds = [1.87, 1.97]
+# b_scale_bounds = [1.1, 1.2]
 # get current date
 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{extra}_seed{seed}_weight{W_scale_bounds}_bias{b_scale_bounds}/"
 
 # %% compute frontier
-errs = stability_test(
+errs = propagation_test(
     width=width,
     depth=depth,
     mode=mode,
@@ -126,7 +127,7 @@ errs = stability_test(
     config_resid=config_resid,
     constant_bias=False,
     normalize=normalize,
-    stability_mode=stability_mode,
+    propagation_mode=stability_mode,
     noise_level=noise_level,
     n_save_last=n_save_last,
     chunks=chunks,

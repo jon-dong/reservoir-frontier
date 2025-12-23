@@ -105,3 +105,28 @@ def plot_frontier(
     plt.show()
 
     return
+
+
+def linear_regression(X, Y):
+    """
+    Computes least squares linear regression: Y = H*X + V
+
+    Args:
+        X: 1D numpy array (independent variable)
+        Y: 1D numpy array (dependent variable)
+
+    Returns:
+        Tuple of (H, V) where H is slope and V is intercept
+    """
+    if X.ndim != 1 or Y.ndim != 1:
+        raise ValueError("Both X and Y must be 1D arrays.")
+    if X.size != Y.size:
+        raise ValueError("X and Y must be the same length.")
+
+    # Construct design matrix
+    A = np.vstack([X, np.ones_like(X)]).T
+
+    # Solve least squares
+    H, V = np.linalg.lstsq(A, Y, rcond=None)[0]
+
+    return H, V

@@ -5,7 +5,7 @@ import os
 import numpy as np
 import torch
 
-from src.fractal import stability_test
+from src.propagation import propagation_test
 from src.utils import get_freer_gpu
 
 # %% setup
@@ -112,7 +112,7 @@ timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 save_folder = f"{timestamp}_{mode}_w{width}d{depth}{'_kernel' + str(kernel_size) if mode == 'conv' else ''}{'_layer' + str(n_layers) if mode == 'struct' else ''}_{extra}_seed{seed}_weight{W_scale_bounds}_bias{b_scale_bounds}/"
 
 # %% compute frontier
-errs = stability_test(
+errs = propagation_test(
     width=width,
     depth=depth,
     mode=mode,
@@ -123,7 +123,7 @@ errs = stability_test(
     config_resid=config_resid,
     constant_bias=False,
     normalize=normalize,
-    stability_mode=stability_mode,
+    propagation_mode=stability_mode,
     noise_level=noise_level,
     n_save_last=n_save_last,
     chunks=chunks,
