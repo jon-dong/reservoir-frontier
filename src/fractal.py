@@ -23,16 +23,20 @@ def erf_frontier(res_scale):
 
 def extract_edges(X):
     """
-    define edges as sign changes in the scalar representing convergence or
-    divergence rate -- on one side of the edge training converges,
-    while on the other side of the edge training diverges
+    Detects edges in a signed 2D array by identifying sign changes.
 
-    X: a numpy array representing the convergence/divergence with signs
-    return: a binary numpy array representing the edges
+    For each 2x2 cell in the array, an edge is detected if the four corner
+    values contain both positive and negative signs.
+
+    Args:
+        X: 2D numpy array with signed values
+
+    Returns:
+        Binary numpy array of shape (H-1, W-1) where True indicates an edge
     """
 
     Y = np.stack((X[1:, 1:], X[:-1, 1:], X[1:, :-1], X[:-1, :-1]), axis=-1)
-    Z = np.sign(np.max(Y, axis=-1) * np.min(Y, axis=-1))
+    Z = np.max(Y, axis=-1) * np.min(Y, axis=-1)
     return Z < 0
 
 
@@ -90,53 +94,79 @@ def linear_regression(X, Y):
 
 
 def count_boxes(field: np.ndarray, box_size: int):
-    # Count how many box_size×box_size (or smaller at the edges) boxes contain at least one True in a 2D boolean array.
+    """
+    Counts boxes of a given size that contain at least one True value.
 
+    Used in box-counting method for fractal dimension estimation. Divides the
+    2D boolean array into a grid of box_size×box_size boxes and counts how many
+    boxes contain at least one True value.
+
+    Args:
+        field: 2D boolean numpy array
+        box_size: Size of each box (must be >= 1)
+
+    Returns:
+        Tuple of (N_boxes, box_size) where N_boxes is the count of occupied boxes
+    """
     if box_size < 1:
         raise ValueError("box_size must be at least 1")
     H, W = field.shape
 
-    # how many boxes fit (round up to cover the whole image)
-    n_rows = int(np.ceil(H / box_size))
-    n_cols = int(np.ceil(W / box_size))
+    # Pad array to make dimensions divisible by box_size
+    pad_H = (box_size - H % box_size) % box_size
+    pad_W = (box_size - W % box_size) % box_size
 
-    N_boxes = 0
-    for i in range(n_rows):
-        # compute the y–slice for this row of boxes
-        y0 = i * box_size
-        y1 = min((i + 1) * box_size, H)
+    if pad_H > 0 or pad_W > 0:
+        padded = np.pad(field, ((0, pad_H), (0, pad_W)), mode='constant', constant_values=False)
+    else:
+        padded = field
 
-        for j in range(n_cols):
-            # compute the x–slice for this column of boxes
-            x0 = j * box_size
-            x1 = min((j + 1) * box_size, W)
+    H_padded, W_padded = padded.shape
+    n_rows = H_padded // box_size
+    n_cols = W_padded // box_size
 
-            # if any point in this sub-array is True, count the box
-            if np.any(field[y0:y1, x0:x1]):
-                N_boxes += 1
+    # Reshape into blocks: (n_rows, box_size, n_cols, box_size)
+    reshaped = padded.reshape(n_rows, box_size, n_cols, box_size)
+
+    # Check if any element in each block is True (reduce over box dimensions)
+    occupied = np.any(reshaped, axis=(1, 3))
+
+    # Count occupied boxes
+    N_boxes = np.sum(occupied)
 
     return N_boxes, box_size
 
 
-def count_boxes_through_scales(fractal, scales):
+def compute_dim(X, min_idx, max_idx, scales=list(range(1, 50))):
+    """
+    Computes fractal dimension using the box-counting method.
+
+    Counts occupied boxes at multiple scales, then estimates the fractal
+    dimension as the negative slope of the log-log plot of box count vs box size.
+    Linear regression is performed on a subset of scales specified by min_idx and max_idx.
+
+    Args:
+        X: 2D boolean numpy array (typically output from extract_edges)
+        min_idx: Start index for linear regression range
+        max_idx: End index for linear regression range
+        scales: List of box sizes to test (default: range(1, 50))
+
+    Returns:
+        Tuple of (fractal_dim, intercept, log_count, log_scales) where:
+        - fractal_dim: Estimated fractal dimension (-slope)
+        - intercept: Y-intercept of the regression line
+        - log_count: Log of box counts at all scales
+        - log_scales: Log of all box sizes
+    """
     count_through_scales = []
     int_scales = []
     for scale in scales:
-        count, int_scale = count_boxes(fractal, scale)
+        count, int_scale = count_boxes(X, scale)
         count_through_scales.append(count)
         int_scales.append(int_scale)
-    return np.array(count_through_scales), np.array(int_scales)
 
-
-def log_count_for_j_scales(fractal, scales=list(range(1, 50))):
-    count_through_scales, integer_scales = count_boxes_through_scales(fractal, scales)
-    log_count = np.log(count_through_scales)
-    log_scales = np.log(integer_scales)
-    return log_count, log_scales
-
-
-def compute_dim(X, min_idx, max_idx):
-    log_count, log_scales = log_count_for_j_scales(X)
+    log_count = np.log(np.array(count_through_scales))
+    log_scales = np.log(np.array(int_scales))
     H, V = linear_regression(log_scales[min_idx:max_idx], log_count[min_idx:max_idx])
 
     return -H, V, log_count, log_scales
