@@ -98,7 +98,6 @@ def propagation_test_net(
         n_save_last=n_save_last,
     )
 
-    net.counter = 0
     outputs2 = net.forward(
         x2,
         bs,

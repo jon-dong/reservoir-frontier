@@ -63,16 +63,38 @@ class Network(torch.nn.Module):
                 )
                 for _ in range(self.n_linops)
             ]
-        self.counter = 0
 
         self.resid_span = config_resid.get("resid_span", None)
         self.resid_stride = config_resid.get("resid_stride", None)
         self.layer_outputs = [None] * (self.depth + 1)
 
-    def iter(self, x, b, W_scales=None, b_scales=None):
-        """Iteration on one layer.
+    def iter(self, x, b, counter, W_scales=None, b_scales=None):
+        """Perform a single layer iteration of the network.
 
-        Output is of shape (n_W_scales, n_b_scales, width)
+        This method computes one forward pass through a single layer by applying
+        a linear operator, adding bias, and passing through an activation function.
+        It supports multiple scaling factors for both weights and biases simultaneously,
+        producing outputs for all combinations of scales.
+
+        Args:
+            x: Input activations of shape (width,) or (n_W_scales, n_b_scales, width).
+               If 1D, it will be expanded to 3D.
+            b: Bias vector for this layer, shape (width,).
+            counter: Index of the linear operator to use (cycles through n_linops).
+            W_scales: Scalar or array-like of scaling factors for the weight matrix.
+                      If None, defaults to [1.0]. Shape (n_W_scales,).
+            b_scales: Scalar or array-like of scaling factors for the bias vector.
+                      If None, defaults to [1.0]. Shape (n_b_scales,).
+
+        Returns:
+            tuple: (x_new, updated_counter) where:
+                - x_new: Activated output of shape (n_W_scales, n_b_scales, width).
+                - updated_counter: Next linear operator index (wraps to 0 after n_linops).
+
+        Note:
+            The computation is: x_new = activation(W_scales * W @ x + b_scales * b)
+            For complex inputs, only the real part is activated and scaled by sqrt(2).
+            For 'rand' mode, output is additionally normalized by 1/sqrt(width).
         """
         if W_scales is None:
             W_scales = torch.tensor([1.0]).to(self.device)
@@ -83,7 +105,7 @@ class Network(torch.nn.Module):
 
         if x.ndim == 1:
             x = x[None, None, :]
-        Wx = self.linops[self.counter].apply(x)
+        Wx = self.linops[counter].apply(x)
         W_scales = W_scales[:, None, None]
         b = b[None, None, :]
         b_scales = b_scales[None, :, None]
@@ -94,15 +116,15 @@ class Network(torch.nn.Module):
         else:
             x_new = self.activation(z)
 
-        self.counter += 1
-        if self.counter == self.n_linops:
-            self.counter = 0
+        counter += 1
+        if counter == self.n_linops:
+            counter = 0
 
         if self.mode == "rand":
             x_new /= np.sqrt(self.width)
-            return x_new
+            return x_new, counter
         elif self.mode in ["struct", "conv"]:
-            return x_new
+            return x_new, counter
         else:
             raise ValueError("Invalid mode")
 
@@ -116,9 +138,40 @@ class Network(torch.nn.Module):
         normalize=False,
         resid_start=1,
     ):
-        """Forward pass on the entire network.
+        """Execute a full forward pass through the entire network.
 
-        Input x is of shape (width,), output is of shape (n_save_last, n_W_scales, n_b_scales, width)
+        This method propagates the input through all layers of the network, applying
+        linear transformations, biases, and activations at each step. It supports
+        parallel analysis by computing outputs for all combinations of weight
+        and bias scaling factors simultaneously.
+
+        Args:
+            x: Initial input vector of shape (width,).
+            bs: Bias vectors for all layers, shape (depth, width). These will be
+                transformed by W_bias before use.
+            W_scales: List of scaling factors for weight matrices. The forward pass
+                      computes outputs for each scale. Default [1.0].
+            b_scales: List of scaling factors for bias vectors. The forward pass
+                      computes outputs for each scale. Default [1.0].
+            n_save_last: Number of final layer outputs to save. If n_save_last=1,
+                         only the final output is saved. If n_save_last=k, the last
+                         k layer outputs are saved. Default 1.
+            normalize: If True, applies z-score normalization (subtract mean, divide
+                       by std) to activations after each layer. Default False.
+            resid_start: Layer index at which to start adding residual connections.
+                         Only used if resid_span is configured. Default 1.
+
+        Returns:
+            torch.Tensor: Saved outputs of shape (n_save_last, n_W_scales, n_b_scales, width).
+                          Contains the activations from the last n_save_last layers,
+                          computed for all combinations of W_scales and b_scales.
+
+        Note:
+            - If resid_span and resid_stride are configured, residual connections
+              are added: x[i] += x[i - resid_span] every resid_stride layers after
+              layer resid_start.
+            - The linear operators cycle through the n_linops operators during iteration.
+            - Progress is displayed via tqdm progress bar.
         """
         assert x.shape == (self.width,), (
             f"Input has incorrect shape {x.shape}, expected ({self.width},)"
@@ -143,10 +196,12 @@ class Network(torch.nn.Module):
         if self.resid_span is not None:
             self.layer_outputs[0] = x  # length depth + 1
 
+        counter = 0
         for i in trange(1, self.depth + 1):
-            x = self.iter(
+            x, counter = self.iter(
                 x,
                 bs[i - 1, :],
+                counter,
                 W_scales=W_scales,
                 b_scales=b_scales,
             )
