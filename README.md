@@ -66,9 +66,9 @@ jupyter notebook scripts/fractal_analysis.ipynb
 ## Citation
 
 ```bibtex
-@article{dong2025fractal,
-  title={Fractal Structure of Neural Network Loss Landscapes},
-  author={Dong, Jianke and others},
+@article{dinverno2025revisiting,
+  title={Revisiting Deep Information Propagation: Fractal Frontier and Finite-size Effects},
+  author={D'Inverno, Giuseppe Alessio and Hu, Zhiyuan and Davy, Leo and Unser, Michael and Rozza, Gianluigi and Dong, Jonathan},
   journal={arXiv preprint arXiv:2508.03222},
   year={2025}
 }
