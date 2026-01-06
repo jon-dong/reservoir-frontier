@@ -120,10 +120,12 @@ class Random(LinOp):
         self.device = device
         self.matrix = th.randn(size, size).to(self.dtype).to(self.device)
 
-    def apply(self, x):
+    def apply(self, x, track_grad=False):
         """perform the linear operator on the input x.
 
         x can be either a single vector or a batch of vectors.
+        track_grad parameter is accepted for API consistency but ignored
+        since this operation already preserves gradients.
         """
         res = th.einsum("ab, ...b -> ...a", self.matrix, x)
         return res
@@ -220,15 +222,24 @@ class StructuredRandom(LinOp):
         #     self.model = self.diagonals[i] @ self.model
         #     self.model = Fft() @ self.model
 
-    def apply(self, x):
+    def apply(self, x, track_grad=False):
         shape = x.shape
         x = x.reshape(-1, shape[-1])
-        with th.no_grad():
+        if track_grad:
+            # Keep gradient tracking enabled for backpropagation
             if self.n_layers - math.floor(self.n_layers) > 0:
                 x = th.fft.fft(x, norm="ortho")
             for i in range(math.floor(self.n_layers)):
                 x = self.diagonals[i].apply(x)
                 x = th.fft.fft(x, norm="ortho")
+        else:
+            # Disable gradients for efficiency (default behavior)
+            with th.no_grad():
+                if self.n_layers - math.floor(self.n_layers) > 0:
+                    x = th.fft.fft(x, norm="ortho")
+                for i in range(math.floor(self.n_layers)):
+                    x = self.diagonals[i].apply(x)
+                    x = th.fft.fft(x, norm="ortho")
         return x.reshape(shape)
 
 
@@ -262,11 +273,16 @@ class RandomConvolution(LinOp):
         self.dtype = dtype
         self.device = device
 
-    def apply(self, x):
+    def apply(self, x, track_grad=False):
         shape = x.shape
         x = x.reshape(-1, shape[-1])
         x = x.unsqueeze(1)
-        with th.no_grad():  # Disable autograd for Conv1d
+        if track_grad:
+            # Keep gradient tracking enabled for backpropagation
             x = self.kernel(x)
+        else:
+            # Disable autograd for efficiency (default behavior)
+            with th.no_grad():
+                x = self.kernel(x)
         x = x.squeeze(1)
         return x.reshape(shape)

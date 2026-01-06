@@ -8,3 +8,4 @@ zooming/
 .venv
 *.pdf
 *.npy
+reservoir_frontier.egg-info/
