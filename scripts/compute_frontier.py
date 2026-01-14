@@ -1,7 +1,8 @@
 # %% imports
 import datetime
 import os
-
+import sys
+sys.path.append("../")
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,15 +20,15 @@ data_folder = "data/runs/"
 # %% parameters
 seed = 1
 width = 100  # state size
-depth = 1000  # number of layers
+depth = 100  # number of layers
 mode = "struct"  # in ['rand', 'struct', 'conv']
 extra = ""  # additional name for saving
 save = True
 
 normalize = False  # layer normalization
 n_linops = depth  # number of linops to iterate on
-resid_span = None  # residual connection length
-resid_stride = None  # residual connection interval
+resid_span = 1  # residual connection length
+resid_stride = 1  # residual connection interval
 
 stability_mode = "independent"  # in ['sensitivity', 'independent']
 noise_level = 1e-5  # for sensitivity analysis
@@ -62,8 +63,8 @@ resolution = [1000, 1000]  # number of weight and bias scales
 chunks = [1, 1]
 n_save_last = 1
 # Bounds for n_res = 100
-# W_scale_bounds = [0, 4]
-# b_scale_bounds = [0, 4]
+W_scale_bounds = [0, 4]
+b_scale_bounds = [0, 4]
 # W_scale_bounds = [2.0, 2.4]
 # b_scale_bounds = [1.8, 2.2]
 # W_scale_bounds = [2.15, 2.25]
@@ -73,8 +74,8 @@ n_save_last = 1
 # b_scale_bounds = [2.0375, 2.0625]
 # W_scale_bounds = [2.1625, 2.1875]
 # b_scale_bounds = [2.0375, 2.0625]
-W_scale_bounds = [2.1725, 2.1975]
-b_scale_bounds = [2.0375, 2.0625]
+# W_scale_bounds = [2.1725, 2.1975]
+# b_scale_bounds = [2.0375, 2.0625]
 # W_scale_bounds = [2.168, 2.193]
 # b_scale_bounds = [2.0375, 2.0625]
 
